@@ -18,6 +18,7 @@ from plugin_utils import *
 gi.require_version("Gimp", "3.0")
 gi.require_version("GimpUi", "3.0")
 gi.require_version("Gtk", "3.0")
+from gi.repository import Gimp, GimpUi, GObject, GLib, Gio, Gtk
 
 _ = gettext.gettext
 
@@ -29,7 +30,6 @@ image_paths = {
         os.path.dirname(os.path.realpath(__file__)), "..", "openvino_utils", "images", "error_icon.png"
     ),
 }
-
 
 class StringEnum:
     """

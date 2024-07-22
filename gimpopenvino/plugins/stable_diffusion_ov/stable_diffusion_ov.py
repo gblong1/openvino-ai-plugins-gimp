@@ -396,7 +396,8 @@ def run(procedure, run_mode, image, n_drawables, layer, args, data):
         device_name_enum = DeviceEnum(supported_modes)        
         
         config = procedure.create_config()
-        config.begin_run(image, run_mode, args)
+        #config.begin_run(image, run_mode, args)
+        procedure.run(config)
 
         # Create JSON Cache - this dictionary will get over witten if the cache exists.
         sd_option_cache_data = dict(prompt="", negative_prompt="", num_images=1,num_infer_steps=20, guidance_scale=7.5,
@@ -903,8 +904,8 @@ def run(procedure, run_mode, image, n_drawables, layer, args, data):
                 if run_inference_thread:
                     run_inference_thread.join()
                     result = runner.result
-                    if result.index(0) == Gimp.PDBStatusType.SUCCESS and config is not None:
-                        config.end_run(Gimp.PDBStatusType.SUCCESS)
+                    #if result.index(0) == Gimp.PDBStatusType.SUCCESS and config is not None:
+                    #    config.end_run(Gimp.PDBStatusType.SUCCESS)
                     return result
             elif response == SDDialogResponse.ProgressUpdate:
                 progress_string=""
