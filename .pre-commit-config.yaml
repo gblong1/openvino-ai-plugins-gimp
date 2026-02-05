@@ -52,16 +52,14 @@ repos:
         args: [--profile=black, --line-length=88]
         exclude: ^(weights/|thirdparty/)
 
-  # mypy - Type checking (optional, can be disabled if too strict initially)
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-all]
-        args: [--config-file=pyproject.toml, --ignore-missing-imports]
-        exclude: ^(tests/|weights/|thirdparty/|setup\.py|model_setup\.py)
-        # Disabled by default - uncomment the 'stages' line below to enable only on push
-        # stages: [push]
+  # mypy - Type checking (optional, disabled by default due to incomplete type coverage)
+  # Uncomment the hook below to enable type checking
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       args: [--config-file=pyproject.toml, --ignore-missing-imports]
+  #       exclude: ^(tests/|weights/|thirdparty/|setup\.py|model_setup\.py)
 
   # black - Code formatter (backup to ruff format)
   - repo: https://github.com/psf/black

@@ -65,6 +65,8 @@ Static type checker for Python (optional but recommended for new code).
 mypy gimpopenvino
 ```
 
+**Note:** The mypy pre-commit hook is disabled by default due to incomplete type coverage in the existing codebase. You can enable it by uncommenting the relevant section in `.pre-commit-config.yaml` if you want automatic type checking on commits.
+
 #### black - Code Formatting
 Alternative code formatter (ruff format can replace this).
 
