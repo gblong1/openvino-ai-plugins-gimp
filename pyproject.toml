@@ -1,0 +1,212 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Project metadata is managed in setup.py for backwards compatibility
+# This file serves as the central configuration for development tools
+name = "gimpopenvino"
+dynamic = ["version"]
+
+[tool.pytest.ini_options]
+# Pytest configuration (migrated from pytest.ini)
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "smoke: Smoke tests for basic functionality",
+    "integration: Integration tests for component interaction",
+    "unit: Unit tests for individual components",
+    "slow: Tests that take significant time to run",
+    "socket: Tests involving socket communication",
+    "model: Tests involving model loading and inference",
+    "plugin: Tests involving GIMP plugin interfaces",
+]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--cov=gimpopenvino",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=0",
+]
+
+[tool.coverage.run]
+source = ["gimpopenvino"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# Ruff - Modern Python linter and formatter
+[tool.ruff]
+# Target Python 3.10+ (minimum version for this project)
+target-version = "py310"
+
+# Line length to match black's default
+line-length = 88
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    "htmlcov",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "weights",
+    "thirdparty",
+]
+
+[tool.ruff.lint]
+# Enable select rule sets - starting with safe defaults
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade (upgrade syntax for newer Python)
+    "B",   # flake8-bugbear (common bugs)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Rules to ignore (can be adjusted based on codebase needs)
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (common in plugins)
+    "SIM108", # use ternary operator (can reduce readability)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore certain rules in test files
+"tests/**/*.py" = [
+    "S101",  # allow assert statements in tests
+]
+"test_*.py" = [
+    "S101",  # allow assert statements in tests
+]
+
+[tool.ruff.lint.isort]
+# Make isort compatible with black
+force-single-line = false
+force-wrap-aliases = false
+split-on-trailing-comma = true
+known-first-party = ["gimpopenvino"]
+
+[tool.ruff.format]
+# Use double quotes for strings (black default)
+quote-style = "double"
+
+# Use spaces for indentation
+indent-style = "space"
+
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+
+# Auto-detect line ending
+line-ending = "auto"
+
+# isort - Import sorting (works alongside ruff)
+[tool.isort]
+# Use black-compatible profile
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+known_first_party = ["gimpopenvino"]
+skip_glob = [
+    "*.egg-info",
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "weights",
+    "thirdparty",
+]
+
+# mypy - Type checking
+[tool.mypy]
+# Start with gradual typing - loose settings to avoid overwhelming errors
+python_version = "3.10"
+
+# Import discovery
+files = ["gimpopenvino", "tests"]
+exclude = [
+    "build",
+    "dist",
+    "weights",
+    "thirdparty",
+]
+
+# Type checking behavior
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+
+# Strictness options (gradually enable these)
+warn_return_any = false
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+
+# Error messages
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+# Platform configuration
+platform = "linux"
+
+# Allow untyped libraries
+ignore_missing_imports = true
+
+# black - Code formatter (for backwards compatibility)
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | __pycache__
+  | build
+  | dist
+  | \.egg-info
+  | weights
+  | thirdparty
+)/
+'''

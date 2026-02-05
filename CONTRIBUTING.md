@@ -1,5 +1,168 @@
 # Contributing
 
+## Code Quality and Development Tools
+
+This project uses modern Python development tools to maintain code quality and consistency. All tool configurations are centralized in `pyproject.toml` following Python best practices.
+
+### Development Environment Setup
+
+1. **Install the package in development mode:**
+   ```bash
+   pip install -e .
+   ```
+
+2. **Install development dependencies:**
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+
+3. **Set up pre-commit hooks (recommended):**
+   ```bash
+   pre-commit install
+   ```
+   This will automatically run code quality checks before each commit.
+
+### Code Quality Tools
+
+We use the following tools to ensure consistent code style and catch common errors:
+
+#### Ruff - Linting and Formatting
+[Ruff](https://github.com/astral-sh/ruff) is a fast Python linter and formatter that combines the functionality of multiple tools (flake8, pylint, isort, etc.).
+
+**Run the linter:**
+```bash
+ruff check .
+```
+
+**Auto-fix issues:**
+```bash
+ruff check --fix .
+```
+
+**Format code:**
+```bash
+ruff format .
+```
+
+#### isort - Import Sorting
+Automatically sorts and organizes imports according to PEP 8 and black-compatible style.
+
+**Check imports:**
+```bash
+isort --check-only .
+```
+
+**Auto-fix imports:**
+```bash
+isort .
+```
+
+#### mypy - Type Checking
+Static type checker for Python (optional but recommended for new code).
+
+**Run type checking:**
+```bash
+mypy gimpopenvino
+```
+
+#### black - Code Formatting
+Alternative code formatter (ruff format can replace this).
+
+**Format code:**
+```bash
+black .
+```
+
+#### Pre-commit Hooks
+Pre-commit runs all configured checks automatically before each commit.
+
+**Run all hooks manually:**
+```bash
+pre-commit run --all-files
+```
+
+**Update hook versions:**
+```bash
+pre-commit autoupdate
+```
+
+### Configuration Files
+
+- **`pyproject.toml`** - Central configuration for all tools (ruff, isort, mypy, black, pytest)
+- **`.pre-commit-config.yaml`** - Pre-commit hook configuration
+- **`.editorconfig`** - Cross-editor settings (indentation, line endings, encoding)
+
+### Code Style Guidelines
+
+- **Line length:** 88 characters (black/ruff default)
+- **Indentation:** 4 spaces for Python files
+- **String quotes:** Double quotes preferred
+- **Import sorting:** Organized by standard library, third-party, and first-party modules
+- **Type hints:** Encouraged for new code and public APIs
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=gimpopenvino
+
+# Run specific test markers
+pytest -m unit
+pytest -m integration
+```
+
+### Workflow for Contributors
+
+1. **Before starting work:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   pip install -r requirements-dev.txt
+   pre-commit install
+   ```
+
+2. **During development:**
+   - Write code following the style guidelines
+   - Add tests for new functionality
+   - Let pre-commit hooks run automatically on commit, or run manually:
+     ```bash
+     pre-commit run --all-files
+     ```
+
+3. **Before submitting a PR:**
+   ```bash
+   # Run all quality checks
+   ruff check --fix .
+   ruff format .
+   isort .
+   
+   # Run tests
+   pytest
+   
+   # Verify pre-commit hooks pass
+   pre-commit run --all-files
+   ```
+
+### Gradual Adoption
+
+We recognize that applying strict linting rules to an existing codebase can be overwhelming. Our approach:
+
+- **New code:** Should pass all configured checks
+- **Modified code:** Fix issues in the lines you change
+- **Existing code:** Can be improved incrementally
+- **Type hints:** Not required for existing code, but encouraged for new code
+
+You can disable specific rules for legitimate reasons using inline comments:
+```python
+# ruff: noqa: E501  - This line intentionally exceeds line length
+long_url = "https://..."
+
+# type: ignore  - Third-party library without type stubs
+import some_untyped_library  # type: ignore
+```
+
 ## Dependency Management
 
 This project follows modern Python packaging best practices:
