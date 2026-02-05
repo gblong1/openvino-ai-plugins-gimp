@@ -180,6 +180,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 "gimpopenvino/plugins/openvino_utils/tools/openvino_common/models_ov/fastsd/**/*.py" = [
     "B006",  # mutable default arguments
     "N801",  # class naming convention
+    "SIM68",  # context manager issues
     "SIM102", # nested if statements
     "SIM103", # return condition directly
 ]
@@ -274,7 +275,7 @@ ignore_missing_imports = true
 # black - Code formatter (for backwards compatibility)
 [tool.black]
 line-length = 88
-target-version = ["py310", "py311", "py312", "py313"]
+target-version = ["py310", "py311", "py312"]
 include = '\.pyi?$'
 exclude = '''
 /(
