@@ -5,8 +5,9 @@
 # To install: pre-commit install
 # To run manually: pre-commit run --all-files
 
+# Use the system's default Python (3.10+)
 default_language_version:
-  python: python3.10
+  python: python3
 
 repos:
   # General file checks
@@ -67,6 +68,5 @@ repos:
     rev: 24.1.1
     hooks:
       - id: black
-        language_version: python3.10
         args: [--line-length=88]
         exclude: ^(weights/|thirdparty/)
