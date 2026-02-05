@@ -154,6 +154,32 @@ We recognize that applying strict linting rules to an existing codebase can be o
 - **Existing code:** Can be improved incrementally
 - **Type hints:** Not required for existing code, but encouraged for new code
 
+#### Current Configuration
+
+The ruff configuration has been tuned for gradual adoption:
+
+- **Basic rules enabled:** `E` (pycodestyle errors), `F` (pyflakes), `W` (warnings), `I` (import sorting)
+- **Ignored for now:** Complex refactoring rules (N, UP, B, C4, SIM) - these will be enabled gradually
+- **Auto-fixed:** Whitespace, trailing whitespace, import ordering
+- **Per-file ignores:** Specific patterns ignored in ML model code, GUI code, and existing plugins
+
+#### When to Fix vs. Ignore
+
+**Fix immediately:**
+- Import errors (F401 - unused imports)
+- Undefined variables (F821 - critical bugs)
+- Syntax errors (E)
+
+**Fix when touching the code:**
+- Unused variables (F841)
+- Comparison issues (E711)
+- Bare except clauses (E722)
+
+**Can be ignored for now:**
+- Import ordering at file top (E402) - GIMP plugins require `gi.require_version` first
+- Mutable default arguments (B006) - common pattern in ML frameworks
+- Complex simplifications (SIM*) - subjective improvements
+
 You can disable specific rules for legitimate reasons using inline comments:
 ```python
 # ruff: noqa: E501  - This line intentionally exceeds line length
@@ -161,6 +187,20 @@ long_url = "https://..."
 
 # type: ignore  - Third-party library without type stubs
 import some_untyped_library  # type: ignore
+```
+
+#### Running Checks
+
+The linter is configured to report issues but allow gradual fixes:
+```bash
+# Check for issues (many will be ignored per configuration)
+ruff check .
+
+# Auto-fix safe issues
+ruff check --fix .
+
+# Format code (whitespace, quotes, etc.)
+ruff format .
 ```
 
 ## Dependency Management
