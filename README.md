@@ -127,6 +127,71 @@ FastSD is a faster version of stable diffusion based on Latent Consistency Model
 
 Note: For NPU usage please use the `rupeshs/sd15-lcm-square-openvino-int8` model.
 
+# Development and Testing
+
+## For Contributors
+
+This project uses modern code quality tools to maintain consistent style and catch errors. See [CONTRIBUTING.md](./CONTRIBUTING.md) for full details.
+
+### Quick Start for Testing This Branch
+
+1. **Clone and install dependencies:**
+   ```bash
+   git clone <repository-url>
+   cd openvino-ai-plugins-gimp
+   pip install -e .
+   pip install -r requirements-dev.txt
+   ```
+
+2. **Test code quality tools:**
+   ```bash
+   # Run the linter (checks for code issues)
+   ruff check .
+   
+   # Run the formatter (checks code formatting)
+   ruff format --check .
+   
+   # Run import sorting check
+   isort --check-only .
+   
+   # Run type checking (optional)
+   mypy gimpopenvino
+   ```
+
+3. **Auto-fix issues:**
+   ```bash
+   # Auto-fix linting issues
+   ruff check --fix .
+   
+   # Auto-format code
+   ruff format .
+   
+   # Auto-fix import sorting
+   isort .
+   ```
+
+4. **Set up pre-commit hooks (recommended):**
+   ```bash
+   pre-commit install
+   # Now hooks will run automatically on each commit
+   
+   # Or run manually on all files
+   pre-commit run --all-files
+   ```
+
+5. **Run tests:**
+   ```bash
+   pytest
+   ```
+
+### Configuration Files
+
+All code quality tools are configured in:
+- **`pyproject.toml`** - Central configuration for ruff, isort, mypy, black, pytest
+- **`.pre-commit-config.yaml`** - Pre-commit hooks
+- **`.editorconfig`** - Editor settings
+
+For detailed documentation on code style, workflows, and tool usage, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 # Acknowledgements
 * Plugin architecture inspired from GIMP-ML - https://github.com/kritiksoman/GIMP-ML/tree/GIMP3-ML
