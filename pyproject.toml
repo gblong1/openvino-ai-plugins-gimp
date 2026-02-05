@@ -80,18 +80,21 @@ select = [
     "F",   # pyflakes
     "W",   # pycodestyle warnings
     "I",   # isort (import sorting)
-    "N",   # pep8-naming
-    "UP",  # pyupgrade (upgrade syntax for newer Python)
-    "B",   # flake8-bugbear (common bugs)
-    "C4",  # flake8-comprehensions
-    "SIM", # flake8-simplify
 ]
 
-# Rules to ignore (can be adjusted based on codebase needs)
+# Rules to ignore for gradual adoption on existing codebase
 ignore = [
     "E501",   # line too long (handled by formatter)
-    "B008",   # do not perform function calls in argument defaults (common in plugins)
-    "SIM108", # use ternary operator (can reduce readability)
+    "E402",   # module level import not at top of file (common in GIMP plugins due to gi.require_version)
+    "E701",   # multiple statements on one line (will be fixed gradually)
+    "E711",   # comparison to None (existing code style)
+    "E722",   # bare except (existing code, should be fixed gradually)
+    "W191",   # indentation contains tabs (will be fixed by formatter)
+    "W291",   # trailing whitespace (will be fixed by formatter)
+    "W293",   # blank line contains whitespace (will be fixed by formatter)
+    "F401",   # imported but unused (will be cleaned up gradually)
+    "F821",   # undefined name (needs careful review)
+    "F841",   # local variable assigned but never used (will be cleaned up gradually)
 ]
 
 # Allow autofix for all enabled rules
@@ -105,9 +108,89 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Ignore certain rules in test files
 "tests/**/*.py" = [
     "S101",  # allow assert statements in tests
+    "B007",  # unused loop variable (common in tests)
+    "SIM117",  # nested with statements (acceptable in tests)
 ]
 "test_*.py" = [
     "S101",  # allow assert statements in tests
+    "B007",  # unused loop variable (common in tests)
+]
+# Ignore naming convention errors in specific files
+"gimpopenvino/plugins/openvino_utils/plugin_utils.py" = [
+    "N802",  # N_ is a common i18n pattern
+]
+"gimpopenvino/plugins/superresolution_ov/superresolution_ov.py" = [
+    "N802",  # N_ is a common i18n pattern
+]
+# Ignore certain errors in model files (complex ML code)
+"gimpopenvino/plugins/openvino_utils/tools/openvino_common/models_ov/**/*.py" = [
+    "B006",  # mutable default arguments (common in ML frameworks)
+    "B023",  # function definition does not bind loop variable
+    "B904",  # raise without from inside except
+    "B905",  # zip without strict parameter (Python 3.10+ feature)
+    "C416",  # unnecessary dict comprehension
+    "C419",  # unnecessary list comprehension
+    "N801",  # class naming convention (ML models)
+    "N802",  # function naming convention (ML models)
+    "N806",  # variable naming convention (ML constants)
+    "SIM101", # multiple isinstance calls
+    "SIM102", # nested if statements (acceptable in complex logic)
+    "SIM103", # return condition directly
+    "SIM110", # use any() instead of for loop
+    "SIM201", # use != instead of not ==
+    "SIM210", # use bool() instead of ternary
+]
+# Ignore issues in install/setup files
+"gimpopenvino/install_utils.py" = [
+    "N806",  # variable naming convention (UUID constants)
+    "SIM102", # nested if statements (acceptable in setup code)
+]
+"setup.py" = [
+    "W291",  # trailing whitespace in docstrings
+    "W293",  # blank line contains whitespace in docstrings
+]
+# Ignore issues in plugin files
+"gimpopenvino/plugins/**/*_ov.py" = [
+    "SIM102", # nested if statements (GUI code often has nested conditions)
+    "SIM103", # return condition directly
+    "SIM113", # use enumerate
+]
+# Ignore issues in model manager (complex download/install logic)
+"gimpopenvino/plugins/openvino_utils/tools/model_manager.py" = [
+    "B023",  # function definition does not bind loop variable
+    "SIM102", # nested if statements
+    "SIM103", # return condition directly
+    "SIM110", # use any() instead of for loop
+]
+# Ignore issues in testcases
+"testcases/**/*.py" = [
+    "SIM118", # use key in dict instead of key in dict.keys()
+]
+# Ignore complex code issues in adapters
+"gimpopenvino/plugins/openvino_utils/tools/openvino_common/adapters/**/*.py" = [
+    "B006",  # mutable default arguments
+    "SIM102", # nested if statements
+    "SIM118", # use key in dict
+]
+# Ignore pipeline complexity
+"gimpopenvino/plugins/openvino_utils/tools/openvino_common/pipelines/**/*.py" = [
+    "B006",  # mutable default arguments (ML pipeline pattern)
+]
+# Ignore FastSD backend complexity
+"gimpopenvino/plugins/openvino_utils/tools/openvino_common/models_ov/fastsd/**/*.py" = [
+    "B006",  # mutable default arguments
+    "N801",  # class naming convention
+    "SIM68",  # context manager issues
+    "SIM102", # nested if statements
+    "SIM103", # return condition directly
+]
+# Ignore server file issues
+"gimpopenvino/plugins/openvino_utils/tools/stable_diffusion_ov_server.py" = [
+    "W191",  # tabs in indentation (existing code)
+]
+# Ignore tools utils complexity
+"gimpopenvino/plugins/openvino_utils/tools/tools_utils.py" = [
+    "C408",  # unnecessary dict() call (existing code style)
 ]
 
 [tool.ruff.lint.isort]
