@@ -178,6 +178,8 @@ This project uses modern code quality tools to maintain consistent style and cat
    # Or run manually on all files
    pre-commit run --all-files
    ```
+   
+   **Note for Windows users:** If you encounter Python version errors, ensure you have Python 3.10+ installed and accessible via `python` or `python3` command. The pre-commit hooks will use your system's Python.
 
 5. **Run tests:**
    ```bash
