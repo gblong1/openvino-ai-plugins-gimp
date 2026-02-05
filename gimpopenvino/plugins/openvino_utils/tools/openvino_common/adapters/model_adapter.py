@@ -16,17 +16,16 @@
 
 import abc
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
 
 
 @dataclass
 class Metadata:
-    names: Set[str] = field(default_factory=set)
-    shape: List[int] = field(default_factory=list)
+    names: set[str] = field(default_factory=set)
+    shape: list[int] = field(default_factory=list)
     layout: str = ''
     precision: str = ''
     type: str = ''
-    meta: Dict = field(default_factory=dict)
+    meta: dict = field(default_factory=dict)
 
 
 class ModelAdapter(metaclass=abc.ABCMeta):

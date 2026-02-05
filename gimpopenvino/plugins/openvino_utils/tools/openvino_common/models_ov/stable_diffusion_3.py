@@ -1,30 +1,23 @@
 import gc
 import inspect
-from functools import partial
-from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union, Any
 import os
-
-from openvino import Core
-import concurrent.futures
+from collections.abc import Callable
+from functools import partial
+from typing import Any
 
 import torch
-from diffusers import StableDiffusion3Pipeline, SD3Transformer2DModel
+from diffusers import SD3Transformer2DModel, StableDiffusion3Pipeline
 from diffusers.image_processor import VaeImageProcessor
-from diffusers.models.autoencoders import AutoencoderKL
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers.pipelines.stable_diffusion_3.pipeline_output import (
+    StableDiffusion3PipelineOutput,
+)
 from diffusers.schedulers import FlowMatchEulerDiscreteScheduler
 from diffusers.utils.torch_utils import randn_tensor
-from diffusers.pipelines.pipeline_utils import DiffusionPipeline
-from diffusers.pipelines.stable_diffusion_3.pipeline_output import StableDiffusion3PipelineOutput
-from diffusers.schedulers import FlowMatchEulerDiscreteScheduler
+from openvino import Core
 from peft import PeftModel
-from transformers import (
-    CLIPTextModelWithProjection,
-    CLIPTokenizer,
-    T5EncoderModel,
-    T5TokenizerFast,
-)
 from transformers import AutoTokenizer
+
 
 def get_pipeline_selection_option(opt_models_dict):
     import ipywidgets as widgets
@@ -209,10 +202,10 @@ def convert_sd3(load_t5, use_flash_lora, model_id="stabilityai/stable-diffusion-
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.retrieve_timesteps
 def retrieve_timesteps(
     scheduler,
-    num_inference_steps: Optional[int] = None,
-    device: Optional[Union[str, torch.device]] = None,
-    timesteps: Optional[List[int]] = None,
-    sigmas: Optional[List[float]] = None,
+    num_inference_steps: int | None = None,
+    device: str | torch.device | None = None,
+    timesteps: list[int] | None = None,
+    sigmas: list[float] | None = None,
     **kwargs,
 ):
     """
@@ -284,14 +277,14 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
 
         print(f"Models compilation - path is {model}")
         self.core = Core()
-        
+
         use_flash_lora = True
 
         self.scheduler = (
             FlowMatchEulerDiscreteScheduler.from_pretrained(os.path.join(model, "scheduler")) #if not use_flash_lora else FlashFlowMatchEulerDiscreteScheduler.from_pretrained(os.path.join(model,"scheduler"))
-        )        
-                
-        
+        )
+
+
         self.register_modules(
             vae = self.load_model(os.path.join(model,    "vae_decoder"), device[0], ov_config),
             text_encoder = self.load_model(os.path.join(model,   "text_encoder"), device[0], ov_config),
@@ -302,7 +295,7 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
             tokenizer_3 = None,
             transformer = self.load_model(os.path.join(model,    "transformer"), device[0], ov_config)
         )
-        
+
         self.vae_scale_factor = 2**3
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
         self.tokenizer_max_length = self.tokenizer.model_max_length if hasattr(self, "tokenizer") and self.tokenizer is not None else 77
@@ -320,7 +313,7 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
 
     def _get_t5_prompt_embeds(
         self,
-        prompt: Union[str, List[str]] = None,
+        prompt: str | list[str] = None,
         num_images_per_prompt: int = 1,
     ):
         prompt = [prompt] if isinstance(prompt, str) else prompt
@@ -349,9 +342,9 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
 
     def _get_clip_prompt_embeds(
         self,
-        prompt: Union[str, List[str]],
+        prompt: str | list[str],
         num_images_per_prompt: int = 1,
-        clip_skip: Optional[int] = None,
+        clip_skip: int | None = None,
         clip_model_index: int = 0,
     ):
         clip_tokenizers = [self.tokenizer, self.tokenizer_2]
@@ -385,19 +378,19 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
         return prompt_embeds, pooled_prompt_embeds
     def encode_prompt(
         self,
-        prompt: Union[str, List[str]],
-        prompt_2: Union[str, List[str]],
-        prompt_3: Union[str, List[str]],
+        prompt: str | list[str],
+        prompt_2: str | list[str],
+        prompt_3: str | list[str],
         num_images_per_prompt: int = 1,
         do_classifier_free_guidance: bool = True,
-        negative_prompt: Optional[Union[str, List[str]]] = None,
-        negative_prompt_2: Optional[Union[str, List[str]]] = None,
-        negative_prompt_3: Optional[Union[str, List[str]]] = None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
-        pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        clip_skip: Optional[int] = None,
+        negative_prompt: str | list[str] | None = None,
+        negative_prompt_2: str | list[str] | None = None,
+        negative_prompt_3: str | list[str] | None = None,
+        prompt_embeds: torch.FloatTensor | None = None,
+        negative_prompt_embeds: torch.FloatTensor | None = None,
+        pooled_prompt_embeds: torch.FloatTensor | None = None,
+        negative_pooled_prompt_embeds: torch.FloatTensor | None = None,
+        clip_skip: int | None = None,
     ):
         prompt = [prompt] if isinstance(prompt, str) else prompt
         if prompt is not None:
@@ -606,29 +599,29 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
     @torch.no_grad()
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
-        prompt_2: Optional[Union[str, List[str]]] = None,
-        prompt_3: Optional[Union[str, List[str]]] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
+        prompt: str | list[str] = None,
+        prompt_2: str | list[str] | None = None,
+        prompt_3: str | list[str] | None = None,
+        height: int | None = None,
+        width: int | None = None,
         num_inference_steps: int = 28,
-        timesteps: List[int] = None,
+        timesteps: list[int] = None,
         guidance_scale: float = 7.0,
-        negative_prompt: Optional[Union[str, List[str]]] = None,
-        negative_prompt_2: Optional[Union[str, List[str]]] = None,
-        negative_prompt_3: Optional[Union[str, List[str]]] = None,
-        num_images_per_prompt: Optional[int] = 1,
-        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-        latents: Optional[torch.FloatTensor] = None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
-        pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        output_type: Optional[str] = "pil",
+        negative_prompt: str | list[str] | None = None,
+        negative_prompt_2: str | list[str] | None = None,
+        negative_prompt_3: str | list[str] | None = None,
+        num_images_per_prompt: int | None = 1,
+        generator: torch.Generator | list[torch.Generator] | None = None,
+        latents: torch.FloatTensor | None = None,
+        prompt_embeds: torch.FloatTensor | None = None,
+        negative_prompt_embeds: torch.FloatTensor | None = None,
+        pooled_prompt_embeds: torch.FloatTensor | None = None,
+        negative_pooled_prompt_embeds: torch.FloatTensor | None = None,
+        output_type: str | None = "pil",
         return_dict: bool = True,
-        clip_skip: Optional[int] = None,
-        callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
-        callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        clip_skip: int | None = None,
+        callback_on_step_end: Callable[[int, int, dict], None] | None = None,
+        callback_on_step_end_tensor_inputs: list[str] = ["latents"],
         callback=None,
         callback_userdata=None
     ):
@@ -736,7 +729,7 @@ class StableDiffusionThreeEngine(DiffusionPipeline):
         return StableDiffusion3PipelineOutput(images=image)
 
 
-def init_pipeline(models_dict: Dict[str, Any], device: str, use_flash_lora: bool, text_encoder_3_dim=4096):
+def init_pipeline(models_dict: dict[str, Any], device: str, use_flash_lora: bool, text_encoder_3_dim=4096):
     pipeline_args = {}
 
     ov_config = {}

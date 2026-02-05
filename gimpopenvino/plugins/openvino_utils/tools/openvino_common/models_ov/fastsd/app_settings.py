@@ -2,9 +2,8 @@ from copy import deepcopy
 from os import makedirs, path
 
 import yaml
-from paths import FastStableDiffusionPaths
-
 from models.settings import Settings
+from paths import FastStableDiffusionPaths
 
 
 class AppSettings:
@@ -36,7 +35,7 @@ class AppSettings:
     def lcm_lora_models(self):
         return self._lcm_lora_models
 
-    
+
 
     def load(self, skip_file=False):
         if skip_file:

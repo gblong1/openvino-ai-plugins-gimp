@@ -1,12 +1,9 @@
-import sys
 import os
 import traceback
-import shutil
-from pathlib import Path
-
-from gimpopenvino.plugins.openvino_utils.tools.model_manager import ModelManager
 
 from gimpopenvino.install_utils import base_model_dir
+from gimpopenvino.plugins.openvino_utils.tools.model_manager import ModelManager
+
 
 def main():
     try:
@@ -61,7 +58,7 @@ def main():
                     model_manager.install_model(install_details["id"])
                 else:
                     print(f"Invalid choice: {ch.strip()}")
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         return
 

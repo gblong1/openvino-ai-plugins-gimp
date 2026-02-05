@@ -14,12 +14,10 @@
  limitations under the License.
 """
 
-import argparse
 import logging
 import os
 import sys
 import time
-from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -54,19 +52,19 @@ def validate_inputs(image: np.ndarray, model_path: str, model_name: str) -> bool
     if not os.path.exists(model_path):
         log.error(f"Model file not found: {model_path}")
         return False
-    
+
     if image is None:
         log.error("Input image is None")
         return False
-    
+
     if "edsr" in model_name and len(image.shape) != 2:
         log.error("EDSR model requires grayscale input image")
         return False
-    
+
     return True
 
 
-def prepare_image_for_model(image: np.ndarray, model_name: str) -> Tuple[np.ndarray, int, int]:
+def prepare_image_for_model(image: np.ndarray, model_name: str) -> tuple[np.ndarray, int, int]:
     """Prepare image for model input and return dimensions."""
     if "edsr" in model_name:
         if len(image.shape) == 3:
@@ -76,14 +74,14 @@ def prepare_image_for_model(image: np.ndarray, model_name: str) -> Tuple[np.ndar
         image = np.expand_dims(image, axis=-1)
     else:
         h, w, _ = image.shape
-    
+
     return image, h, w
 
 
 def get_model_inputs(model, model_name: str):
     """Extract model input keys without modifying the original model."""
     inputs = list(model.inputs)
-    
+
     if "esrgan" in model_name or "edsr" in model_name:
         return inputs[0], None, None
     else:
@@ -94,7 +92,7 @@ def get_model_inputs(model, model_name: str):
         return original_image_key, bicubic_image_key, upsample_factor
 
 
-def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Optional[np.ndarray]:
+def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> np.ndarray | None:
     """
     Run the superresolution model on the input image.
 
@@ -108,25 +106,25 @@ def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Opt
         # Validate inputs
         if not validate_inputs(image, model_path, model_name):
             return None
-        
+
         # Prepare image and get dimensions
         processed_image, h, w = prepare_image_for_model(image, model_name)
-        
+
         # Initialize OpenVINO
         core = ov.Core()
-        
+
         # Set cache directory for ESRGAN on non-GPU devices
         if "esrgan" in model_name and "gpu" not in device.lower():
             cache_dir = os.path.join(os.path.dirname(model_path), 'cache')
             core.set_property({'CACHE_DIR': cache_dir})
-        
+
         # Load model
         log.info(f"Loading model: {model_path}")
         model = core.read_model(model=model_path)
-        
+
         # Get input information
         original_image_key, bicubic_image_key, upsample_factor = get_model_inputs(model, model_name)
-        
+
         # Reshape model for dynamic input sizes
         shapes = {}
         for input_layer in model.inputs:
@@ -141,10 +139,10 @@ def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Opt
                 shapes[input_layer] = input_layer.partial_shape
                 shapes[input_layer][2] = upsample_factor * h
                 shapes[input_layer][3] = upsample_factor * w
-        
+
         if shapes:
             model.reshape(shapes)
-        
+
         config = None
         if device == "NPU":
             config = {"NPU_USE_NPUW": "YES", "NPU_BYPASS_UMD_CACHING": "YES", "NPUW_PARALLEL_COMPILE": "YES", "NPUW_FOLD": "YES"} # compile much faster with NPUW config
@@ -156,7 +154,7 @@ def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Opt
         compiled_model = core.compile_model(model=model, device_name=device, config=config)
         compilation_time = time.perf_counter() - start_time
         log.info(f"Model compilation completed in {compilation_time:.3f} seconds")
-        
+
         # Get compiled model inputs and outputs
         compiled_inputs = list(compiled_model.inputs)
         if "esrgan" in model_name or "edsr" in model_name:
@@ -164,26 +162,26 @@ def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Opt
             bicubic_input = None
         else:
             original_input, bicubic_input = compiled_inputs
-        
+
         output_key = compiled_model.output(0)
-        
+
         # Prepare input data
         input_image_original = np.expand_dims(processed_image.transpose(2, 0, 1), axis=0)
         if "esrgan" in model_name:
             input_image_original = input_image_original / 255.0
-        
+
         inputs = {original_input.any_name: input_image_original}
-        
+
         # Add bicubic input if needed
         if bicubic_input is not None:
             bicubic_image = cv2.resize(
-                src=image, 
-                dsize=(w * upsample_factor, h * upsample_factor), 
+                src=image,
+                dsize=(w * upsample_factor, h * upsample_factor),
                 interpolation=cv2.INTER_CUBIC
             )
             input_image_bicubic = np.expand_dims(bicubic_image.transpose(2, 0, 1), axis=0)
             inputs[bicubic_input.any_name] = input_image_bicubic
-        
+
         # create inference request.
         infer_request = compiled_model.create_infer_request()
 
@@ -193,11 +191,11 @@ def run(image: np.ndarray, model_path: str, device: str, model_name: str) -> Opt
         result = infer_request.infer(inputs)[output_key]
         inference_time = time.perf_counter() - start_time
         log.info(f"Inference completed in {inference_time:.3f} seconds")
-        
+
         # Convert result to image
         result_image = convert_result_to_image(result, model_name)
         return result_image
-    
+
     except Exception as e:
         log.error(f"Error during model execution: {type(e).__name__}: {e}")
         return None

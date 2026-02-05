@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-import warnings
 import os
+import warnings
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -25,13 +25,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
-from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
-from PIL import Image
-from diffusers.schedulers import DDIMScheduler, LMSDiscreteScheduler, LCMScheduler, EulerDiscreteScheduler
+from diffusers.schedulers import (
+    EulerDiscreteScheduler,
+)
 from openvino import Core
+from PIL import Image
 
 # Local imports
 sys.path.extend(
@@ -41,11 +42,6 @@ sys.path.extend(
     ]
 )
 
-from gimpopenvino.plugins.openvino_utils.tools.tools_utils import (  # type: ignore
-    SDOptionCache,  # noqa: F401 (import kept for compatibility)
-    config_path_dir,
-    get_weight_path,
-)
 from gimpopenvino.plugins.openvino_utils.tools.openvino_common.models_ov import (  # type: ignore
     controlnet_canny_edge,
     controlnet_cannyedge_advanced,
@@ -56,18 +52,21 @@ from gimpopenvino.plugins.openvino_utils.tools.openvino_common.models_ov import 
     stable_diffusion_engine,
     stable_diffusion_engine_fastsd,
     stable_diffusion_engine_genai,
-    stable_diffusion_engine_inpainting,
     stable_diffusion_engine_inpainting_advanced,
     stable_diffusion_engine_inpainting_genai,
 )
-
 from gimpopenvino.plugins.openvino_utils.tools.openvino_common.models_ov.fastsd.model_config import (  # type: ignore
     ModelConfig,
+)
+from gimpopenvino.plugins.openvino_utils.tools.tools_utils import (  # type: ignore
+    SDOptionCache,  # noqa: F401 (import kept for compatibility)
+    config_path_dir,
+    get_weight_path,
 )
 
 # ---- FastSD model catalog
 fast_sd_models_config = ModelConfig(os.path.join(config_path_dir, "fastsd_models.json")).load()
-fast_sd_models: List[str] = fast_sd_models_config.get("models", []) or []
+fast_sd_models: list[str] = fast_sd_models_config.get("models", []) or []
 fast_sd_models_up = [m.lower() for m in fast_sd_models]
 fast_sd_models_map = {m.lower(): m for m in fast_sd_models}
 
@@ -131,7 +130,7 @@ def get_windows_pcie_device_driver_versions():
         return []
 
 
-def check_windows_device_driver_version(device_name: str, driver_info) -> Optional[str]:
+def check_windows_device_driver_version(device_name: str, driver_info) -> str | None:
     for info in driver_info or []:
         desc = info.get("Description") or ""
         if device_name and desc and device_name.lower() in desc.lower():
@@ -154,7 +153,7 @@ def print_system_info() -> None:
     elif platform.system().lower() == "linux":
         log.info(f"BIOS: {get_bios_version()}")
         try:
-            with open("/sys/module/intel_vpu/version", "r", encoding="utf-8") as f:
+            with open("/sys/module/intel_vpu/version", encoding="utf-8") as f:
                 log.info(f"NPU Driver: {f.readline().strip()}")
         except Exception:
             log.info("NPU Driver: <unknown>")
@@ -163,7 +162,7 @@ def print_system_info() -> None:
 
 # ----------------------- Engine selection -----------------------
 
-def initialize_engine(model_name: str, model_path: str, device_list: List[str]):
+def initialize_engine(model_name: str, model_path: str, device_list: list[str]):
     """Route to correct engine implementation."""
     if model_name == "sd_1.5_square_int8":
         return stable_diffusion_engine.StableDiffusionEngineAdvanced(model=model_path, device=device_list)
@@ -221,9 +220,9 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def validate_model_paths(base_path: str, model_paths: Dict[str, List[str]]) -> Dict[str, str]:
+def validate_model_paths(base_path: str, model_paths: dict[str, list[str]]) -> dict[str, str]:
     """Return {model_name: full_path} for available models."""
-    results: Dict[str, str] = {}
+    results: dict[str, str] = {}
     for model_name, relative_parts in model_paths.items():
         full_path = os.path.join(base_path, *relative_parts)
         if not os.path.isdir(full_path):
@@ -255,14 +254,14 @@ def main() -> int:
         weight_path = args.model_base_path
     else:
         weight_path = get_weight_path()
-    
+
     # Check if the directory path exists
     if not os.path.exists(weight_path):
         raise FileNotFoundError(f"The directory path {weight_path} does not exist.")
-    
+
     available_devices = Core().get_available_devices()
     execution_devices = ["GPU"]*5 if "GPU" in available_devices else ["CPU"]*5
-    
+
     model_paths = {
         "sd_1.4": ["stable-diffusion-ov", "stable-diffusion-1.4"],
         "sd_1.5_square_lcm": ["stable-diffusion-ov", "stable-diffusion-1.5", "square_lcm"],
@@ -323,12 +322,12 @@ def main() -> int:
         model_path = ""
 
     # Devices: 5 entries for regular, 1 for FastSD
-    execution_devices: List[str] = (["GPU"] * 5) if not use_fastsd else ["CPU"]
+    execution_devices: list[str] = (["GPU"] * 5) if not use_fastsd else ["CPU"]
 
     # Optional power-mode config (non-FastSD)
     if not use_fastsd and args.power_mode and os.path.exists(model_config_file_name):
         try:
-            with open(model_config_file_name, "r", encoding="utf-8") as f:
+            with open(model_config_file_name, encoding="utf-8") as f:
                 cfg = json.load(f)
             if str(cfg.get("power modes supported", "no")).lower() == "yes":
                 key = args.power_mode.lower()
@@ -404,7 +403,7 @@ def main() -> int:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     results = []
-    generation_times: List[float] = []
+    generation_times: list[float] = []
 
     for i in range(args.num_images):
         log.info("Starting inference...")
@@ -487,17 +486,7 @@ def main() -> int:
                 callback=None,
                 callback_userdata=None,
             )
-        elif model_name_key == "sd_1.5_square_lcm":
-            output = engine(
-                prompt=prompt,
-                negative_prompt=None,
-                num_inference_steps=num_infer_steps,
-                guidance_scale=guidance_scale,
-                seed=ran_seed,
-                callback=None,
-                callback_userdata=None,
-            )
-        elif "sdxl" in model_name_key:
+        elif model_name_key == "sd_1.5_square_lcm" or "sdxl" in model_name_key:
             output = engine(
                 prompt=prompt,
                 negative_prompt=None,

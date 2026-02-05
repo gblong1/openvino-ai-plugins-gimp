@@ -2,58 +2,50 @@
 # Copyright(C) 2022-2023 Intel Corporation
 # SPDX - License - Identifier: Apache - 2.0
 
-import os
-import json
-import sys
-import socket
-import cv2
 import ast
-import traceback
+import json
 import logging as log
-from pathlib import Path
-import time 
+import os
 import random
-import torch
-        
-from PIL import Image
+import socket
+import sys
+import threading
+import time
+import traceback
+
+import cv2
 import numpy as np
 import psutil
-import threading
+from PIL import Image
 
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "openvino_common")])
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..","tools")])
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")])
 
-from gimpopenvino.plugins.openvino_utils.tools.tools_utils import get_weight_path, SDOptionCache,config_path_dir
 import config
-
-from diffusers.schedulers import DDIMScheduler, LMSDiscreteScheduler, LCMScheduler, EulerDiscreteScheduler
-from models_ov.stable_diffusion_engine import StableDiffusionEngineAdvanced, StableDiffusionEngine, LatentConsistencyEngine, StableDiffusionEngineReferenceOnly
-from models_ov.stable_diffusion_engine_inpainting import StableDiffusionEngineInpainting
-from models_ov.stable_diffusion_engine_inpainting_genai import StableDiffusionEngineInpaintingGenai
-from models_ov.stable_diffusion_engine_inpainting_advanced import StableDiffusionEngineInpaintingAdvanced
-from models_ov.controlnet_openpose import ControlNetOpenPose
-from models_ov.controlnet_canny_edge import ControlNetCannyEdge
-from models_ov.controlnet_scribble import ControlNetScribble, ControlNetScribbleAdvanced
-from models_ov.controlnet_openpose_advanced import ControlNetOpenPoseAdvanced
-from models_ov.controlnet_cannyedge_advanced import ControlNetCannyEdgeAdvanced
-
-from models_ov import (
-    stable_diffusion_engine,
-    stable_diffusion_engine_genai,
-    stable_diffusion_engine_inpainting_genai,
-    stable_diffusion_engine_inpainting,
-    stable_diffusion_engine_inpainting_advanced,
-    stable_diffusion_3,
-    controlnet_openpose,
-    controlnet_canny_edge,
-    controlnet_scribble,
-    controlnet_openpose_advanced,
-    controlnet_cannyedge_advanced,
-    stable_diffusion_engine_fastsd,
+from diffusers.schedulers import (
+    EulerDiscreteScheduler,
 )
-
+from models_ov import (
+    controlnet_canny_edge,
+    controlnet_cannyedge_advanced,
+    controlnet_openpose,
+    controlnet_openpose_advanced,
+    controlnet_scribble,
+    stable_diffusion_3,
+    stable_diffusion_engine,
+    stable_diffusion_engine_fastsd,
+    stable_diffusion_engine_genai,
+    stable_diffusion_engine_inpainting_advanced,
+    stable_diffusion_engine_inpainting_genai,
+)
 from models_ov.fastsd.model_config import ModelConfig
+
+from gimpopenvino.plugins.openvino_utils.tools.tools_utils import (
+    SDOptionCache,
+    config_path_dir,
+    get_weight_path,
+)
 
 log.basicConfig(format='[ %(levelname)s ] %(message)s', level=log.DEBUG, stream=sys.stdout)
 fast_sd_models_config = ModelConfig(os.path.join(config_path_dir, "fastsd_models.json")).load()
@@ -114,7 +106,7 @@ def run(model_name, available_devices, power_mode):
             "power modes supported" : "no",
             "best performance" : ["CPU", "CPU", "CPU", "CPU"]
             }
-        
+
         model_path = os.path.join(weight_path, *model_paths.get(model_name, default_path))
 
         log.info('Initializing Inference Engine...')
@@ -124,12 +116,12 @@ def run(model_name, available_devices, power_mode):
 
         try:
             if os.path.exists(model_config_file_name):
-                with open(model_config_file_name, 'r') as file:
+                with open(model_config_file_name) as file:
                     model_config = json.load(file)
                     if model_config['power modes supported'].lower() == "yes":
                         device_list = model_config[power_mode.lower()]
                     else:
-                        device_list = model_config['best performance']   
+                        device_list = model_config['best performance']
             else:
                 with open(model_config_file_name,  'w') as file:
                     json.dump(default_config, file, indent=4)
@@ -141,7 +133,7 @@ def run(model_name, available_devices, power_mode):
                         device_list = [d.replace('GPU', 'GPU.0') if isinstance(d, str) else d for d in device_list]
                     else:
                         device_list = [d.replace('GPU', 'GPU.1') if isinstance(d, str) else d for d in device_list]
-        
+
         except (KeyError, FileNotFoundError, json.JSONDecodeError) as e:
             log.error(f"Error loading configuration: {e}. Only CPU will be used.")
         log.info('Initializing StableDiffusion engine...')
@@ -158,13 +150,13 @@ def run(model_name, available_devices, power_mode):
             try:
                 s.bind((config.DEFAULT_HOST, config.SERVER_PORT))
                 break
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
                 retries = retries - 1
                 print("Error in server binding. Retries left = ", retries)
 
                 if retries > 0:
-                   print("Waiting {} seconds until next retry".format(config.SERVER_RETRY_DELAY))
+                   print(f"Waiting {config.SERVER_RETRY_DELAY} seconds until next retry")
                    time.sleep(config.SERVER_RETRY_DELAY)
                 else:
                    print("Error in stable diffusion server binding. Out of retries.")
@@ -266,7 +258,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
             log.info('Prompt: %s', prompt)
             log.info('Inference Steps: %s', num_infer_steps)
             log.info('Guidance Scale: %s', guidance_scale)
-            
+
             log.info('Init Image: %s', init_image)
 
             if seed is not None:
@@ -290,12 +282,12 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     seed=seed,
                 )
             end_time = time.time()
-            elapsed_time = end_time - start_time    
+            elapsed_time = end_time - start_time
             print(f"Image generated from Stable-Diffusion in {elapsed_time:.2f} seconds.")
             image = "sd_cache.png"
 
             output.save(os.path.join(weight_path, "..", image))
-            src_width, src_height = output.size   
+            src_width, src_height = output.size
 
             options.set("src_height",src_height)
             options.set("src_width", src_width)
@@ -307,7 +299,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
             for f_name in os.listdir(my_dir):
                 if f_name.startswith("error_log"):
                     os.remove(os.path.join(my_dir, f_name))
-        except Exception as error:
+        except Exception:
             with open(os.path.join(weight_path, "..", "error_log.txt"), "w") as file:
                 traceback.print_exception("DEBUG THE ERROR", file=file)
     else:
@@ -341,7 +333,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
             log.info('Inference Steps: %s', num_infer_steps)
             log.info('Number of Images: %s', num_images)
             log.info('Guidance Scale: %s', guidance_scale)
-            
+
             log.info('Init Image: %s', init_image)
 
             if seed is not None:
@@ -353,7 +345,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                 log.info('Random Seed: %s', seed)
 
             start_time = time.time()
-            
+
             if "inpainting" in model_name:
                 output = engine(
                     prompt=prompt,
@@ -367,7 +359,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     callback=progress_callback,
                     callback_userdata=conn
                 )
-            elif model_name == "controlnet_referenceonly":
+            elif model_name == "controlnet_referenceonly" or "controlnet" in model_name:
                 output = engine(
                     prompt=prompt,
                     negative_prompt=negative_prompt,
@@ -381,21 +373,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     callback=progress_callback,
                     callback_userdata=conn
                 )
-            elif "controlnet" in model_name: 
-                output = engine(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    image=Image.open(init_image),
-                    scheduler=scheduler,
-                    num_inference_steps=num_infer_steps,
-                    guidance_scale=guidance_scale,
-                    eta=0.0,
-                    create_gif=bool(create_gif),
-                    model=model_path,
-                    callback=progress_callback,
-                    callback_userdata=conn
-                )        
-            elif model_name == "sd_1.5_square_lcm":        
+            elif model_name == "sd_1.5_square_lcm" or "sdxl" in model_name:
                 output = engine(
                     prompt=prompt,
                     negative_prompt=None,
@@ -405,20 +383,10 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     callback=progress_callback,
                     callback_userdata=conn,
                 )
-            elif "sdxl" in model_name:        
-                output = engine(
-                    prompt=prompt,
-                    negative_prompt=None,
-                    num_inference_steps=num_infer_steps,
-                    guidance_scale=guidance_scale,
-                    seed=seed,
-                    callback=progress_callback,
-                    callback_userdata=conn,
-                )            
             elif "sd_3.0_med" in model_name or "sd_3.5_med" in model_name:
                 if model_name =="sd_3.5_med_turbo_square":
                     negative_prompt=None
-                
+
                 output = engine(
                     prompt=prompt,
                     negative_prompt=negative_prompt,
@@ -427,7 +395,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     seed=seed,
                     callback=progress_callback,
                     callback_userdata=conn,
-                )                           
+                )
             else:
                 if model_name == "sd_2.1_square":
                     scheduler = EulerDiscreteScheduler(
@@ -454,18 +422,15 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                     callback=progress_callback,
                     callback_userdata=conn
                 )
-            
+
 
             end_time = time.time()
             print("Image generated from Stable-Diffusion in ", end_time - start_time, " seconds.")
             image = "sd_cache.png"
 
-            if ("controlnet" in model_name) and "referenceonly" not in model_name:
+            if ("controlnet" in model_name) and "referenceonly" not in model_name or ("inpainting" in model_name or model_name == "sd_1.5_square_lcm" or "sd_3" in model_name or "sdxl" in model_name):
                 output.save(os.path.join(weight_path, "..", image))
                 src_width, src_height = output.size
-            elif("inpainting" in model_name or model_name == "sd_1.5_square_lcm" or "sd_3" in model_name or "sdxl" in model_name):
-                output.save(os.path.join(weight_path, "..", image))
-                src_width, src_height = output.size          
             else:
                 cv2.imwrite(os.path.join(weight_path, "..", image), output)
                 src_height, src_width, _ = output.shape
@@ -482,7 +447,7 @@ def handle_client_data(data, conn, engine, model_name, model_path, scheduler):
                 if f_name.startswith("error_log"):
                     os.remove(os.path.join(my_dir, f_name))
 
-        except Exception as error:
+        except Exception:
             options.set("inference_status","failed")
             options.save()
             with open(os.path.join(weight_path, "..", "error_log.txt"), "w") as file:
@@ -502,7 +467,7 @@ def start():
         if "gimp" in proc.name():
             gimp_proc = proc
             break
-    
+
     if gimp_proc:
         psutil.wait_procs([proc])
         print("exiting..!")

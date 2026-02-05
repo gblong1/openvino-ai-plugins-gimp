@@ -1,16 +1,19 @@
 
 import gi
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk
-import threading
-import time
-import sys
 import os
 import socket
 import subprocess
+import sys
+import threading
+import time
+
+from gi.repository import Gdk, GLib, Gtk
 
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)))])
 import config
+
 
 class ErrorWindow(Gtk.Dialog):
     def __init__(self, parent, summary, details):
@@ -70,11 +73,11 @@ class ModelManagementWindow(Gtk.Window):
         #if it's not running already, start it up!
         if( self.is_server_running() is False ):
             if sys.platform == 'win32':
-                creationflags = subprocess.CREATE_NO_WINDOW 
+                creationflags = subprocess.CREATE_NO_WINDOW
             else:
-                creationflags = 0 # N/A on linux 
-                
-            _process = subprocess.Popen([python_path, server_path],     
+                creationflags = 0 # N/A on linux
+
+            _process = subprocess.Popen([python_path, server_path],
                                         creationflags=creationflags,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
@@ -322,7 +325,7 @@ class ModelManagementWindow(Gtk.Window):
                         break
 
         except Exception as e:
-            print(f"There was a problem polling install status..")
+            print("There was a problem polling install status..")
             print(e)
             import traceback
             traceback.print_exc()
@@ -429,7 +432,7 @@ class ModelManagementWindow(Gtk.Window):
                 return self._all_model_details(s)
 
         except Exception as e:
-            print(f"There was a problem getting model details..")
+            print("There was a problem getting model details..")
             print(e)
 
 
@@ -502,7 +505,7 @@ class ModelManagementWindow(Gtk.Window):
                 data = s.recv(config.SOCKET_BUFFER_SIZE)
                 if data.decode() == "ping":
                     ret = True
-        except Exception as e:
+        except Exception:
             ret = False
         return ret
 

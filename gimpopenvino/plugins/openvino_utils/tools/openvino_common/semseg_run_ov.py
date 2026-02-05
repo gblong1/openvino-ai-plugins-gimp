@@ -17,22 +17,13 @@
 
 import logging
 import sys
-
 from time import perf_counter
 
 import cv2
 import numpy as np
-from openvino import AsyncInferQueue, Core, PartialShape, layout_helpers, get_version, Dimension
-from adapters import create_core, OpenvinoAdapter
-
-
-from models_ov.segmentation import  SegmentationModel 
-
-from pipelines import get_user_config, AsyncPipeline
-
-from performance_metrics import PerformanceMetrics
-from models import OutputTransform
-
+from adapters import OpenvinoAdapter, create_core
+from models_ov.segmentation import SegmentationModel
+from pipelines import AsyncPipeline, get_user_config
 
 logging.basicConfig(format='[ %(levelname)s ] %(message)s', level=logging.INFO, stream=sys.stdout)
 log = logging.getLogger()
@@ -71,7 +62,7 @@ class SegmentationVisualizer:
         self.color_map = self.create_color_map()
 
     def get_palette_from_file(self, colors_path):
-        with open(colors_path, 'r') as file:
+        with open(colors_path) as file:
             colors = []
             for line in file.readlines():
                 values = line[line.index('(')+1:line.index(')')].split(',')
@@ -100,11 +91,11 @@ class SaliencyMapVisualizer:
 
 def render_segmentation(frame, masks, visualiser, only_masks=False):
     output = visualiser.apply_color_map(masks)
-   
-    return output
- 
 
-def run(frame, model_path, device): 
+    return output
+
+
+def run(frame, model_path, device):
     plugin_config = get_user_config(device, '', None)
     model_adapter = OpenvinoAdapter(create_core(), model_path, device=device, plugin_config=plugin_config,max_num_requests=1, model_parameters={})
     model = SegmentationModel.create_model('segmentation', model_adapter, None)
@@ -113,7 +104,7 @@ def run(frame, model_path, device):
 
     #model, visualizer = get_model(ie, model_path)
     pipeline = AsyncPipeline(model)
-    
+
     if pipeline.is_ready():
         start_time = perf_counter()
         pipeline.submit_data(frame, 0, {'frame': frame, 'start_time': start_time})
@@ -136,9 +127,9 @@ def run(frame, model_path, device):
             frame = frame_meta['frame']
             start_time = frame_meta['start_time']
             frame = render_segmentation(frame, objects, visualizer)
-    
-    
-    return frame 
+
+
+    return frame
 
 
 

@@ -1,7 +1,8 @@
 import json
-from os import path, mkdir
+from os import mkdir, path
 from typing import Any
 from uuid import uuid4
+
 from backend.models.lcmdiffusion_setting import LCMDiffusionSetting
 from utils import get_image_file_extension
 
@@ -72,4 +73,4 @@ class ImageSaver:
                         indent=4,
                     )
         return image_ids
-            
+

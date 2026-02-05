@@ -14,9 +14,10 @@
  limitations under the License.
 """
 
+import math
+
 import cv2
 import numpy as np
-import math
 
 
 class Detection:
@@ -100,7 +101,7 @@ class InputTransform:
 
 
 def load_labels(label_file):
-    with open(label_file, 'r') as f:
+    with open(label_file) as f:
         labels_map = [x.strip() for x in f]
     return labels_map
 

@@ -1,5 +1,6 @@
-from json import load, dump
-from os import path 
+from json import dump, load
+from os import path
+
 
 class ModelConfig:
     def __init__(self, config_path):
@@ -19,7 +20,7 @@ class ModelConfig:
         self.config = {"device_name": "CPU", "models": self.default_models.copy()}
         if path.exists(self.config_path):
             try:
-                with open(self.config_path, "r") as file:
+                with open(self.config_path) as file:
                     self.config = load(file)
                     return self.config
             except Exception :
@@ -31,6 +32,6 @@ class ModelConfig:
         with open(self.config_path, "w") as file:
             self.config[key]=value
             dump(self.config, file)
-        
+
     def get_default_models(self):
         return self.default_models.copy()

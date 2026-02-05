@@ -9,12 +9,10 @@ Tests model loading and management:
 - Error handling for missing models
 """
 
-import os
 import json
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ============================================================================
 # OpenVINO Core Initialization Tests
@@ -48,18 +46,18 @@ def test_openvino_device_selection():
     """Test device selection logic."""
     mock_core = MagicMock()
     mock_core.available_devices = ["CPU", "GPU", "NPU"]
-    
+
     with patch('openvino.Core', return_value=mock_core):
         import openvino
         core = openvino.Core()
         devices = core.available_devices
-        
+
         # Simulate device selection logic
         if "GPU" in devices:
             selected_device = "GPU"
         else:
             selected_device = "CPU"
-        
+
         assert selected_device in ["CPU", "GPU"]
 
 
@@ -74,7 +72,7 @@ def test_model_path_resolution(mock_weights_dir):
     # Create model directory structure
     model_dir = mock_weights_dir / "stable-diffusion-ov" / "stable-diffusion-1.5"
     model_dir.mkdir(parents=True)
-    
+
     assert model_dir.exists()
     assert "stable-diffusion-1.5" in str(model_dir)
 
@@ -85,10 +83,10 @@ def test_model_config_file_creation(mock_model_path):
     """Test model config.json file exists and is valid."""
     config_file = mock_model_path / "config.json"
     assert config_file.exists()
-    
-    with open(config_file, 'r') as f:
+
+    with open(config_file) as f:
         config = json.load(f)
-    
+
     assert "power modes supported" in config
     assert "best performance" in config
 
@@ -102,7 +100,7 @@ def test_model_path_for_different_models(mock_weights_dir):
         "sd_1.5_inpainting": ["stable-diffusion-ov", "stable-diffusion-1.5", "inpainting"],
         "controlnet_openpose": ["stable-diffusion-ov", "controlnet-openpose"],
     }
-    
+
     for model_name, path_parts in model_paths.items():
         model_path = mock_weights_dir.joinpath(*path_parts)
         model_path.mkdir(parents=True, exist_ok=True)
@@ -120,7 +118,7 @@ def test_stable_diffusion_engine_mock():
     mock_engine = MagicMock()
     mock_engine.model = "sd_1.5_square"
     mock_engine.device = ["CPU", "CPU", "CPU", "CPU"]
-    
+
     assert mock_engine.model == "sd_1.5_square"
     assert mock_engine.device[0] == "CPU"
 
@@ -130,13 +128,13 @@ def test_stable_diffusion_engine_mock():
 def test_model_loading_with_device_list(mock_openvino_core, mock_model_path):
     """Test model loading with specific device configuration."""
     device_list = ["CPU", "CPU", "CPU", "CPU"]
-    
+
     with patch('openvino.Core', return_value=mock_openvino_core):
         # Simulate engine initialization
         mock_engine = MagicMock()
         mock_engine.model = str(mock_model_path)
         mock_engine.device = device_list
-        
+
         assert mock_engine.device == device_list
         assert len(mock_engine.device) == 4
 
@@ -152,7 +150,7 @@ def test_model_initialization_different_types():
         "controlnet_openpose",
         "controlnet_canny",
     ]
-    
+
     for model_type in model_types:
         mock_engine = MagicMock()
         mock_engine.model_name = model_type
@@ -168,10 +166,10 @@ def test_model_initialization_different_types():
 def test_model_config_power_modes(mock_model_path):
     """Test power mode configuration in model config."""
     config_file = mock_model_path / "config.json"
-    
-    with open(config_file, 'r') as f:
+
+    with open(config_file) as f:
         config = json.load(f)
-    
+
     # Check power modes are properly configured
     assert config["power modes supported"] in ["yes", "no"]
     assert "best performance" in config
@@ -188,12 +186,12 @@ def test_model_config_device_selection():
         "balanced": ["CPU", "CPU", "GPU", "GPU"],
         "best power efficiency": ["CPU", "CPU", "CPU", "CPU"]
     }
-    
+
     # Test different power modes
     power_mode = "best performance"
     device_list = config[power_mode.lower()]
     assert device_list == ["GPU", "GPU", "GPU", "GPU"]
-    
+
     power_mode = "balanced"
     device_list = config[power_mode.lower()]
     assert "CPU" in device_list and "GPU" in device_list
@@ -204,13 +202,13 @@ def test_model_config_device_selection():
 def test_model_config_default_fallback(tmp_path):
     """Test fallback to default config when config file doesn't exist."""
     non_existent_path = tmp_path / "non_existent" / "config.json"
-    
+
     # Simulate default config
     default_config = {
         "power modes supported": "no",
         "best performance": ["CPU", "CPU", "CPU", "CPU"]
     }
-    
+
     if not non_existent_path.exists():
         # Use default config
         device_list = default_config['best performance']
@@ -232,7 +230,7 @@ def test_engine_selection_logic():
         "controlnet_openpose": "ControlNetOpenPose",
         "controlnet_canny": "ControlNetCannyEdge",
     }
-    
+
     for model_name, expected_engine in model_engine_map.items():
         # Simulate engine selection
         if "int8" in model_name and "inpainting" not in model_name and "controlnet" not in model_name:
@@ -247,7 +245,7 @@ def test_engine_selection_logic():
             selected_engine = "ControlNetCannyEdge"
         else:
             selected_engine = "StableDiffusionEngine"
-        
+
         assert selected_engine is not None
 
 
@@ -269,7 +267,7 @@ def test_invalid_device_handling():
     """Test handling of invalid device specifications."""
     invalid_devices = ["INVALID_DEVICE", "XPU", ""]
     valid_devices = ["CPU", "GPU", "NPU"]
-    
+
     for device in invalid_devices:
         # Simulate device validation
         is_valid = device in valid_devices
@@ -281,7 +279,7 @@ def test_invalid_device_handling():
 def test_corrupted_config_handling():
     """Test handling of corrupted config files."""
     invalid_json = "{ invalid json }"
-    
+
     with pytest.raises(json.JSONDecodeError):
         json.loads(invalid_json)
 
@@ -297,7 +295,7 @@ def test_model_manager_initialization(mock_weights_dir):
     mock_manager = MagicMock()
     mock_manager.weight_path = str(mock_weights_dir)
     mock_manager.model_install_status = {}
-    
+
     assert mock_manager.weight_path is not None
     assert isinstance(mock_manager.model_install_status, dict)
 
@@ -307,11 +305,11 @@ def test_model_manager_initialization(mock_weights_dir):
 def test_model_manager_get_all_model_details():
     """Test getting all model details from ModelManager."""
     mock_manager = MagicMock()
-    
+
     installed_models = [
         {"name": "Stable Diffusion 1.5", "id": "sd_1.5_square"}
     ]
-    
+
     installable_models = [
         {
             "name": "Stable Diffusion XL",
@@ -320,9 +318,9 @@ def test_model_manager_get_all_model_details():
             "install_status": "not_installed"
         }
     ]
-    
+
     mock_manager.get_all_model_details.return_value = (installed_models, installable_models)
-    
+
     installed, installable = mock_manager.get_all_model_details()
     assert len(installed) == 1
     assert len(installable) == 1
@@ -335,14 +333,14 @@ def test_model_install_status_tracking():
     """Test model installation status tracking."""
     mock_manager = MagicMock()
     mock_manager.model_install_status = {}
-    
+
     # Simulate adding installation status
     model_id = "sdxl_turbo"
     mock_manager.model_install_status[model_id] = {
         "status": "Installing...",
         "percent": 45.0
     }
-    
+
     assert model_id in mock_manager.model_install_status
     assert mock_manager.model_install_status[model_id]["percent"] == 45.0
 
@@ -356,20 +354,20 @@ def test_model_install_status_tracking():
 def test_fastsd_model_config_loading(tmp_path):
     """Test loading FastSD model configuration."""
     config_file = tmp_path / "fastsd_models.json"
-    
+
     fastsd_config = {
         "models": [
             "rupeshs/sdxs-512-dreamshaper-openvino-int8",
             "rupeshs/sd-turbo-openvino-int8"
         ]
     }
-    
+
     with open(config_file, 'w') as f:
         json.dump(fastsd_config, f)
-    
-    with open(config_file, 'r') as f:
+
+    with open(config_file) as f:
         loaded_config = json.load(f)
-    
+
     assert "models" in loaded_config
     assert len(loaded_config["models"]) == 2
 
@@ -382,9 +380,9 @@ def test_fastsd_model_name_normalization():
         "rupeshs/sdxs-512-dreamshaper-openvino-int8",
         "rupeshs/SD-Turbo-OpenVINO-INT8"  # Mixed case
     ]
-    
+
     # Normalize to lowercase
     normalized = [model.lower() for model in fastsd_models]
-    
+
     assert all(model == model.lower() for model in normalized)
     assert "rupeshs/sd-turbo-openvino-int8" in normalized

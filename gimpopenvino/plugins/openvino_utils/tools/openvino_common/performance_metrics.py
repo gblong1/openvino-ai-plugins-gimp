@@ -69,10 +69,10 @@ class PerformanceMetrics:
         # Draw performance stats over frame
         current_latency, current_fps = self.get_last()
         if current_latency is not None:
-            put_highlighted_text(frame, "Latency: {:.1f} ms".format(current_latency * 1e3),
+            put_highlighted_text(frame, f"Latency: {current_latency * 1e3:.1f} ms",
                                  position, cv2.FONT_HERSHEY_COMPLEX, font_scale, color, thickness)
         if current_fps is not None:
-            put_highlighted_text(frame, "FPS: {:.1f}".format(current_fps),
+            put_highlighted_text(frame, f"FPS: {current_fps:.1f}",
                                  (position[0], position[1]+30), cv2.FONT_HERSHEY_COMPLEX, font_scale, color, thickness)
 
     def get_last(self):
@@ -98,5 +98,5 @@ class PerformanceMetrics:
     def log_total(self):
         total_latency, total_fps = self.get_total()
         log.info('Metrics report:')
-        log.info("\tLatency: {:.1f} ms".format(total_latency * 1e3) if total_latency is not None else "\tLatency: N/A")
-        log.info("\tFPS: {:.1f}".format(total_fps) if total_fps is not None else "\tFPS: N/A")
+        log.info(f"\tLatency: {total_latency * 1e3:.1f} ms" if total_latency is not None else "\tLatency: N/A")
+        log.info(f"\tFPS: {total_fps:.1f}" if total_fps is not None else "\tFPS: N/A")

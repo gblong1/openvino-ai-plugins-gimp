@@ -16,7 +16,6 @@
 
 import cv2
 import numpy as np
-
 from models.image_model import ImageModel
 from models.types import ListValue, StringValue
 from models.utils import load_labels
@@ -42,7 +41,7 @@ class SegmentationModel(ImageModel):
         elif len(layer_shape) == 4:
             self.out_channels = layer_shape[1]
         else:
-            self.raise_error("Unexpected output layer shape {}. Only 4D and 3D output layers are supported".format(layer_shape))
+            self.raise_error(f"Unexpected output layer shape {layer_shape}. Only 4D and 3D output layers are supported")
 
         return layer_name
 

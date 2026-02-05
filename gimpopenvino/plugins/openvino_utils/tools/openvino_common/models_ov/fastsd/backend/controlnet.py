@@ -1,10 +1,11 @@
 import logging
-from PIL import Image
-from diffusers import ControlNetModel
+
 from backend.models.lcmdiffusion_setting import (
-    DiffusionTask,
     ControlNetSetting,
+    DiffusionTask,
 )
+from diffusers import ControlNetModel
+from PIL import Image
 
 
 # Prepares ControlNet adapters for use with FastSD CPU

@@ -1,30 +1,32 @@
-import os
-import json
-import sys
-import traceback
-import openvino as ov
-from enum import Enum
-from huggingface_hub import snapshot_download, HfApi, HfFileSystem, hf_hub_url
 import concurrent.futures
-import platform
-import shutil
-import io
-import requests
-import queue
 import fnmatch
+import io
+import json
 import logging
+import os
+import queue
+import shutil
+import sys
 import threading
-from pathlib import Path
-from tqdm import tqdm
 import time
+import traceback
+from pathlib import Path
+
+import openvino as ov
+import requests
+from huggingface_hub import HfApi, HfFileSystem, hf_hub_url
+from tqdm import tqdm
 
 logging.basicConfig(format='%(message)s', level=logging.INFO, stream=sys.stdout)
 
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "openvino_common")])
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..","tools")])
-from models_ov import (stable_diffusion_engine_genai, stable_diffusion_engine_inpainting_genai)
-from gimpopenvino.install_utils import NPUArchitecture, get_npu_architecture
+from models_ov import (
+    stable_diffusion_engine_genai,
+    stable_diffusion_engine_inpainting_genai,
+)
 
+from gimpopenvino.install_utils import NPUArchitecture, get_npu_architecture
 
 # This dictionary is used to populate the drop-down model selection list.
 # It's a map from model-id -> model_details.
@@ -41,7 +43,7 @@ g_supported_model_map = {
         "install_id": "sd_15_square",
         "install_subdir": ["stable-diffusion-ov", "stable-diffusion-1.5", "square"]
     },
-    
+
     "sd_1.5_square_fp8":
     {
         "name": "Stable Diffusion 1.5 [Square] [FP8]",
@@ -77,7 +79,7 @@ g_supported_model_map = {
         "install_subdir": ["stable-diffusion-ov", "stable-diffusion-xl", "square_base"],
     },
 
-    
+
    "sdxl_turbo_square":
     {
         "name": "Stable Diffusion XL Turbo [Square] [FP16]",
@@ -221,7 +223,7 @@ g_installable_base_model_map = {
         "name": "Stable Diffusion 1.5 LCM",
         "repo_id": "SimianLuo/LCM_Dreamshaper_v7",
         "download_exclude_filters": ["*.py", "*.png", "LCM_Dreamshaper_v7_4k.safetensors","model.onnx_data"],
-        
+
     },
 
     "sdxl_base":
@@ -229,8 +231,8 @@ g_installable_base_model_map = {
         "name": "Stable Diffusion XL Base 1.0",
         "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
         "download_exclude_filters": ["*.msgpack","*.fp16.safetensors","*.bin", "*.xml","*.onnx","*.onnx_data","*.png", "sd_xl_base_1.0.safetensors","sd_xl_base_1.0_0.9vae.safetensors", "sd_xl_offset_example-lora_1.0.safetensors"],
-    
-        
+
+
     },
 
     "sdxl_turbo":
@@ -238,8 +240,8 @@ g_installable_base_model_map = {
         "name": "Stable Diffusion XL Turbo",
         "repo_id": "stabilityai/sdxl-turbo",
         "download_exclude_filters": ["*.msgpack","*.fp16.safetensors","*.bin", "*.xml","*.onnx","*.onnx_data","*.png", "*.jpg","sd_xl_turbo_1.0.safetensors","sd_xl_turbo_1.0_fp16.safetensors"],
-      
-        
+
+
     },
 
     "sd_15_portrait":
@@ -368,7 +370,7 @@ def download_file_with_progress(url, local_filename, callback, total_bytes_downl
     total_size = int(total_file_size)
     downloaded_size = 0
     percent_complete = 0
-    percent_complete_last = -1.0;
+    percent_complete_last = -1.0
     with open(local_filename, 'wb') as file:
         for data in response.iter_content(chunk_size=4096):
             file.write(data)
@@ -385,7 +387,7 @@ def download_file_with_progress(url, local_filename, callback, total_bytes_downl
                   if callback(total_bytes_downloaded, total_file_list_size):
                       return downloaded_size
 
-    time.sleep(0.5) # give large files a chance to sync in their target directory. 
+    time.sleep(0.5) # give large files a chance to sync in their target directory.
     return downloaded_size
 
 def get_npu_driver_version(core):
@@ -409,7 +411,7 @@ def get_npu_config(core, architecture):
     except Exception as e:
         logging.error(f"Error retrieving NPU configuration: {str(e)}")
         return None
-    
+
 class ModelManager:
     def __init__(self, weight_path):
         self._core = ov.Core()
@@ -500,12 +502,12 @@ class ModelManager:
             if not os.path.isfile(json_path):
                 return None
 
-            with open(json_path, "r") as file:
+            with open(json_path) as file:
                 installed_info = json.load(file)
 
             return installed_info
 
-        except Exception as e:
+        except Exception:
             print(f"Exception in get_installed_info(.., {model_id})")
             traceback.print_exc()
             return None
@@ -529,7 +531,7 @@ class ModelManager:
                 if not os.path.isfile(required_bin_path):
                     print(f"{model_id} installation folder exists, but it is missing {required_bin_path}")
                     return False
-            
+
             if model_id == "sd_1.5_square_fp8" and self._npu_arch.is_at_least(NPUArchitecture.ARCH_5000):
                 install_subdir = g_supported_model_map[model_id]["install_subdir"]
                 full_install_path = os.path.join(self._weight_path, *install_subdir)
@@ -537,7 +539,7 @@ class ModelManager:
                 if not os.path.isfile(required_bin_path):
                     print(f"{model_id} installation folder exists, but it is missing {required_bin_path}")
                     return False
-                
+
             if "sd_3.0_med" in model_id or "sd_3.5_med" in model_id:
                 install_subdir = g_supported_model_map[model_id]["install_subdir"]
                 full_install_path = os.path.join(self._weight_path, *install_subdir)
@@ -550,11 +552,11 @@ class ModelManager:
                     config = { 	"power modes supported": "No",
                                 "best performance" : ["CPU","CPU","CPU"]
                             }
-                
+
                 npu_is_available = self._npu_is_available
                 npu_arch = self._npu_arch
 
-                # if we have an NPU, we must have a GPU as well.                                        
+                # if we have an NPU, we must have a GPU as well.
                 if npu_is_available and npu_arch is not NPUArchitecture.ARCH_3720 :
                     config = { 	"power modes supported": "yes",
                                     "best performance" : ["GPU","GPU","GPU"],
@@ -571,7 +573,7 @@ class ModelManager:
 
             return True
 
-        except Exception as e:
+        except Exception:
             print(f"Exception in is_model_installed(.., {model_id}")
             traceback.print_exc()
             return False
@@ -620,7 +622,7 @@ class ModelManager:
 
             return False
 
-        except Exception as e:
+        except Exception:
             print(f"Exception in is_model_update_available(.., {model_id}")
             traceback.print_exc()
             return False
@@ -819,7 +821,7 @@ class ModelManager:
                         raise e
 
         # There shouldn't be any way to get here..
-        raise RuntimeError(f"Unexpected exit from _download_hf_repo..")
+        raise RuntimeError("Unexpected exit from _download_hf_repo..")
 
     # this combines the previous 'download_model' and 'download_quantized_models` routines into a single function (that rules them all)
     # Returns True if the download was successful. Otherwise (error or cancellation), it returns False.
@@ -880,19 +882,19 @@ class ModelManager:
                     if("sd_15_inpainting" in model_id or "sd_15_LCM" in model_id or "sdxl" in model_id):
                         from pathlib import Path
                         #from gi.repository import Gimp
-                        cwd = Path.cwd() 
+                        cwd = Path.cwd()
                         full_download_folder = os.path.join(cwd, download_folder)
-                        
+
                         print("Download path",full_download_folder)
                         if os.path.isdir(full_install_path):
                             shutil.rmtree(full_install_path)
-                        
+
                         os.makedirs(full_install_path, exist_ok=True)
                         time.sleep(1) # give time for os to create folder
 
                         #print("optimun-cli full install path",full_install_path)
                         import subprocess
-                        
+
                         optimum_ex = sys.executable.replace("python", "optimum-cli").replace("optimum-cli3", "optimum-cli")
 
                         output_file = Path(os.path.join(full_install_path, "export_output.log"))
@@ -905,7 +907,7 @@ class ModelManager:
                                 config = { 	"power modes supported": "No",
                                             "best performance" : ["CPU","CPU","CPU"]
                                          }
-                            
+
                             # if we have an NPU, we must have a GPU as well.
                             npu_is_available = self._npu_is_available
                             npu_arch = self._npu_arch
@@ -914,12 +916,12 @@ class ModelManager:
                                                 "best performance" : ["GPU","GPU","GPU"],
                                                         "balanced" : ["GPU","NPU","GPU"],
                                         "best power efficiency"    : ["NPU","NPU","GPU"]
-                                        }                                                                    
+                                        }
                                 if "sdxl" in model_id and npu_arch is NPUArchitecture.ARCH_3720 :
                                     config = { 	"power modes supported": "No",
                                                     "best performance" : ["GPU","GPU","GPU"]
                                             }
-                              
+
                             # Specify the file name
                             file_name = "config.json"
                             os.makedirs(os.path.dirname(full_install_path), exist_ok=True)
@@ -942,9 +944,9 @@ class ModelManager:
                         if os.path.isdir(download_folder):
                             shutil.rmtree(download_folder, ignore_errors=True)
 
-                        
-                        
-                        # To cache these models upfront as it takes a lot of time to load. 
+
+
+                        # To cache these models upfront as it takes a lot of time to load.
                         if "sdxl_turbo" in model_id:
                                 model_name="sdxl_turbo_square"
                         if "sdxl_base" in model_id:
@@ -952,17 +954,17 @@ class ModelManager:
                         if "sdxl_inpainting" in model_id:
                                 model_name="sdxl_inpainting"
                                 self.model_install_status[model_id]["status"] = "Compiling Model"
-                                stable_diffusion_engine_inpainting_genai.StableDiffusionEngineInpaintingGenai(model=full_install_path,device="GPU")                                 
-                                                                     
+                                stable_diffusion_engine_inpainting_genai.StableDiffusionEngineInpaintingGenai(model=full_install_path,device="GPU")
+
                         elif "sdxl" in model_id:
                                 self.model_install_status[model_id]["status"] = "Compiling Model"
                                 stable_diffusion_engine_genai.StableDiffusionEngineGenai(model=full_install_path,model_name=model_name,device=["GPU","GPU","GPU"])
                                 if config["power modes supported"] == "yes":
                                     stable_diffusion_engine_genai.StableDiffusionEngineGenai(model=full_install_path,model_name=model_name,device=["GPU","NPU","GPU"])
-                                    stable_diffusion_engine_genai.StableDiffusionEngineGenai(model=full_install_path,model_name=model_name,device=["NPU","NPU","GPU"])                                 
-                                                                     
+                                    stable_diffusion_engine_genai.StableDiffusionEngineGenai(model=full_install_path,model_name=model_name,device=["NPU","NPU","GPU"])
+
                         return True
-                    
+
                     # get 'right-most' folder in the subdir.
                     leaf_folder = install_subdir[-1]
 
@@ -998,24 +1000,24 @@ class ModelManager:
                     if os.path.isdir(os.path.join(download_folder, 'FP16')):
                         #if the 'right-most' installation directory *doesn't* contain 'int8',
                         # then this is the FP16 model.
-                        if not 'int8' in leaf_folder:
+                        if 'int8' not in leaf_folder:
                             if "fp8" in leaf_folder:
                                 # special case where we need to skip copying some unet files.
-                                shutil.copytree(os.path.join(download_folder, 'FP16'), 
-                                                full_install_path, 
-                                                dirs_exist_ok=True, 
+                                shutil.copytree(os.path.join(download_folder, 'FP16'),
+                                                full_install_path,
+                                                dirs_exist_ok=True,
                                                 ignore=shutil.ignore_patterns("unet.xml",
                                                                               "unet.bin",
                                                                               "unet_bs1.xml",
                                                                               "unet_bs1.bin"))
                             else:
                                 # copy the FP16 collateral
-                                shutil.copytree(os.path.join(download_folder, 'FP16'), 
-                                                full_install_path, 
+                                shutil.copytree(os.path.join(download_folder, 'FP16'),
+                                                full_install_path,
                                                 dirs_exist_ok=True,
                                                 ignore=shutil.ignore_patterns("unet_fp8.xml",
                                                                               "unet_fp8.bin"))
-                            
+
                         else:
                             if os.path.isdir(os.path.join(download_folder, 'INT8')):
                                 # copy the INT8 collateral
@@ -1030,7 +1032,7 @@ class ModelManager:
             if download_cancelled:
                 return False
 
-        except Exception as e:
+        except Exception:
             # print it:
             traceback.print_exc()
 
@@ -1132,11 +1134,11 @@ class ModelManager:
                 #  which means NPU Recompilation.
                 if all_are_installed:
                     if self._npu_arch is not None:
-                        print(f"{model_id}: Recompiling NPU models") 
+                        print(f"{model_id}: Recompiling NPU models")
                     else:
-                        print(f"{model_id}: Model is already installed. Skipping download. ") 
+                        print(f"{model_id}: Model is already installed. Skipping download. ")
 
-                    # we still need to set this to avoid re-downloading everything. 
+                    # we still need to set this to avoid re-downloading everything.
                     only_npu_recompilation = True
 
                     #Initialize the install_info with the existing one,
@@ -1155,9 +1157,7 @@ class ModelManager:
                     self.dl_sd_15_square(model_id, only_npu_recompilation)
                 #elif model_id == "sd_15_LCM":
                 #    self.dl_sd_15_LCM(model_id, only_npu_recompilation)
-                elif (model_id == "test1"):
-                    self.install_test(model_id)
-                elif (model_id == "test2"):
+                elif (model_id == "test1") or (model_id == "test2"):
                     self.install_test(model_id)
                 else:
                     print("Warning! unknown model_id=", model_id)
@@ -1167,7 +1167,7 @@ class ModelManager:
                 if "cancelled" not in self.model_install_status[model_id]:
                     try:
                         # If there was not an error in installation, write some installation info to the install directory.
-                       
+
                         if model_id not in self.model_install_error_condition:
                             for supported_model in self.installable_model_map[model_id]["supported_model_ids"]:
                                 install_subdir = g_supported_model_map[supported_model]["install_subdir"]
@@ -1175,12 +1175,12 @@ class ModelManager:
 
                                 if is_subdirectory(full_install_path, self._weight_path):
                                     # If the install info dictionary is non-empty, write the info.
-                                 
+
                                     if self.model_install_status[model_id]["install_info"]:
                                         file_name = "install_info.json"
                                         with open(os.path.join(full_install_path, file_name), 'w') as json_file:
                                             json.dump(self.model_install_status[model_id]["install_info"], json_file, indent=4)
-                    except Exception as e:
+                    except Exception:
                         # print it:
                         traceback.print_exc()
 
@@ -1197,7 +1197,7 @@ class ModelManager:
             with self.model_install_status_lock:
                 self.model_install_status.pop(model_id)
 
-        except Exception as e:
+        except Exception:
             # note, this should only happen if there is an exception thrown *inside* of this
             # this function.
             print("Exception within install_model routine:")
@@ -1226,8 +1226,8 @@ class ModelManager:
         npu_is_available = self._npu_is_available
 
         download_success = True
-        
-        # Default config is that everything should be on GPU, if we have it. 
+
+        # Default config is that everything should be on GPU, if we have it.
         if "GPU" in core.get_available_devices():
             config_fp_16 = { 	"power modes supported": "No",
                     "best performance" : ["GPU","GPU","GPU","GPU"]
@@ -1235,16 +1235,16 @@ class ModelManager:
         else:
             config_fp_16 = { 	"power modes supported": "No",
                     "best performance" : ["CPU","CPU","CPU","CPU"] }
-            
+
         config_int8 = config_fp_16.copy()
         config_fp8  = config_fp_16.copy()
-            
+
         # If we are only recompiling the NPU models, don't download.
         if only_npu_recompilation is False:
             print("Downloading Intel/sd-1.5-square-quantized Models")
             download_success = self._download_model(model_id)
-        
-        if npu_is_available: 
+
+        if npu_is_available:
             if download_success:
                 try:
                     self.model_install_status[model_id]["status"] = "Compiling models for NPU..."
@@ -1266,10 +1266,10 @@ class ModelManager:
                             "unet_int8" : unet_int8_future,
                             "unet_int8a16" : unet_int8a16_future,
                             "unet_bs1" : unet_future,
-                            
+
                         }
-                    elif npu_arch.is_at_least(NPUArchitecture.ARCH_5000): 
-                        # only support FP8 for PTL and beyond... 
+                    elif npu_arch.is_at_least(NPUArchitecture.ARCH_5000):
+                        # only support FP8 for PTL and beyond...
                         models_to_compile = [ "unet_int8a16", "unet_int8", "unet_bs1", "unet_fp8", "text_encoder", "vae_encoder" , "vae_decoder" ]
                         shared_models = ["text_encoder.blob", "vae_encoder.blob", "vae_decoder.blob"]
                         sd15_futures = {
@@ -1301,25 +1301,25 @@ class ModelManager:
                             logging.info(f"Creating NPU model for {model_name}")
 
                             if "unet" in model_name:
-                                config = { "NPU_COMPILATION_MODE_PARAMS" : "performance-hint-override=latency" } 
+                                config = { "NPU_COMPILATION_MODE_PARAMS" : "performance-hint-override=latency" }
 
 
                             if "unet_fp8" in model_name and npu_arch.is_at_least(NPUArchitecture.ARCH_5000):
                                 model_path_fp8  = os.path.join(install_location, model_fp8, model_name + ".xml")
                                 output_path_fp8 = os.path.join(install_location, model_fp8, model_name + ".blob")
-                                sd15_futures[model_name] = executor.submit(compile_and_export_model, 
-                                                                           core, 
-                                                                           model_path_fp8, 
-                                                                           output_path_fp8, 
+                                sd15_futures[model_name] = executor.submit(compile_and_export_model,
+                                                                           core,
+                                                                           model_path_fp8,
+                                                                           output_path_fp8,
                                                                            config=config) if os.path.exists(model_path_fp8) else None
                             elif "unet_int8" not in model_name:
                                 model_path_fp16 = os.path.join(install_location, model_fp16, model_name + ".xml")
                                 output_path_fp16 = os.path.join(install_location, model_fp16, model_name + ".blob")
                                 # there is currently a race condition where the FP8 model won't exist the first time SD 1.5 is installed
-                                sd15_futures[model_name] = executor.submit(compile_and_export_model, 
-                                                                           core, 
-                                                                           model_path_fp16, 
-                                                                           output_path_fp16, 
+                                sd15_futures[model_name] = executor.submit(compile_and_export_model,
+                                                                           core,
+                                                                           model_path_fp16,
+                                                                           output_path_fp16,
                                                                            config=config) if os.path.exists(model_path_fp16) else None
                             else:
                                 model_path_int8 = os.path.join(install_location, model_int8, model_name + ".xml")
@@ -1333,7 +1333,7 @@ class ModelManager:
                         self.model_install_status[model_id]["percent"] = 0.0
                         for model_name, model_future in sd15_futures.items():
                             if model_future is not None:
-                                model_future.result() 
+                                model_future.result()
                                 self.model_install_status[model_id]["percent"] += perc_increment
 
                     # Copy shared models to INT8 and FP8 directories
@@ -1366,9 +1366,9 @@ class ModelManager:
                                                     "balanced" : ["NPU","NPU","GPU","GPU"],
                                        "best power efficiency" : ["NPU","NPU","NPU","GPU"]
                     }
-                    
 
-                except Exception as e:
+
+                except Exception:
                     # print it:
                     traceback.print_exc()
 
@@ -1467,7 +1467,7 @@ class ModelManager:
                                "best power efficiency" : ["NPU","NPU","GPU"]
                         }
 
-                except Exception as e:
+                except Exception:
                     # print it:
                     traceback.print_exc()
 

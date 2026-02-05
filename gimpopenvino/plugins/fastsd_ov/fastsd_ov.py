@@ -9,8 +9,6 @@ gi.require_version("Gimp", "3.0")
 gi.require_version("GimpUi", "3.0")
 gi.require_version("Gtk", "3.0")
 
-from gi.repository import Gimp, Gio, GLib, Pango, Gtk
-
 import json
 import os
 import socket
@@ -20,14 +18,16 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Thread
 
+from gi.repository import Gimp, Gio, GLib, Gtk, Pango
 
 sys.path.extend(
     [os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "openvino_utils")]
 )
+import config
 from gi.repository import GimpUi
 from tools.openvino_common.models_ov.fastsd.model_config import ModelConfig
 from tools.tools_utils import SDOptionCache, config_path_dir
-import config
+
 MODEL_DISPLAY_TEXT_MAX_LENGTH = 40
 STABLE_DIFFUSION_OV_SERVER = "stable_diffusion_ov_server.py"
 CONFIG_FILE = os.path.join(config_path_dir, "fastsd_models.json")
@@ -46,7 +46,7 @@ class ModelManagerDialog(Gtk.Dialog):
             self.models_config = ModelConfig(CONFIG_FILE)
             config = self.models_config.load()
             self.models = config.get("models", [])
-        except Exception as exc:
+        except Exception:
             self.models = []
 
         box = self.get_content_area()
@@ -139,7 +139,7 @@ def is_server_running():
             data = sock.recv(config.SOCKET_BUFFER_SIZE)
             if data.decode() == "ping":
                 return True
-    except Exception as exc:
+    except Exception:
         return False
 
 
@@ -374,7 +374,7 @@ class FastSDPlugin(Gimp.PlugIn):
             s.sendall(b"kill")
 
             print("stable-diffusion model server killed")
-        except (ConnectionError, OSError) as e:
+        except (ConnectionError, OSError):
             print("No stable-diffusion model server found to kill")
 
         if sys.platform == "win32":
@@ -470,7 +470,6 @@ class FastSDPlugin(Gimp.PlugIn):
         try:
             with open(
                 os.path.join(config_path_dir, "gimp_openvino_config.json"),
-                "r",
             ) as file:
                 config_path_output = json.load(file)
 
@@ -525,7 +524,7 @@ class FastSDPlugin(Gimp.PlugIn):
         run_data,
     ):
         with open(
-            os.path.join(config_path_dir, "gimp_openvino_config.json"), "r"
+            os.path.join(config_path_dir, "gimp_openvino_config.json")
         ) as file:
             self.config_path_output = json.load(file)
 

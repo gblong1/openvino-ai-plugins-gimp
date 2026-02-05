@@ -2,11 +2,13 @@
 # SPDX - License - Identifier: Apache - 2.0
 
 import gi
+
 gi.require_version("Gimp", "3.0")
 gi.require_version("GimpUi", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gimp, GimpUi, GObject, GLib, Gio, Gtk
 import gettext
+
+from gi.repository import Gimp, GimpUi, Gio, Gtk
 
 _ = gettext.gettext
 

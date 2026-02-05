@@ -223,7 +223,7 @@ class Model:
                     len(self.inputs), ', '.join(self.inputs)
                 ))
         else:
-            if not len(self.inputs) in number_of_inputs:
+            if len(self.inputs) not in number_of_inputs:
                 self.raise_error("Expected {} or {} input blobs, but {} found: {}".format(
                     ', '.join(str(n) for n in number_of_inputs[:-1]), int(number_of_inputs[-1]),
                     len(self.inputs), ', '.join(self.inputs)
@@ -236,7 +236,7 @@ class Model:
                     len(self.outputs), ', '.join(self.outputs)
                 ))
         else:
-            if not len(self.outputs) in number_of_outputs:
+            if len(self.outputs) not in number_of_outputs:
                 self.raise_error("Expected {} or {} output blobs, but {} found: {}".format(
                     ', '.join(str(n) for n in number_of_outputs[:-1]), int(number_of_outputs[-1]),
                     len(self.outputs), ', '.join(self.outputs)
@@ -296,8 +296,6 @@ class Model:
         '''Prints the shape, precision and layout for all model inputs/outputs.
         '''
         for name, metadata in self.inputs.items():
-            self.logger.info('\tInput layer: {}, shape: {}, precision: {}, layout: {}'.format(
-                name, metadata.shape, metadata.precision, metadata.layout))
+            self.logger.info(f'\tInput layer: {name}, shape: {metadata.shape}, precision: {metadata.precision}, layout: {metadata.layout}')
         for name, metadata in self.outputs.items():
-            self.logger.info('\tOutput layer: {}, shape: {}, precision: {}, layout: {}'.format(
-                name, metadata.shape, metadata.precision, metadata.layout))
+            self.logger.info(f'\tOutput layer: {name}, shape: {metadata.shape}, precision: {metadata.precision}, layout: {metadata.layout}')

@@ -1,45 +1,42 @@
 import gc
-from math import ceil
-from typing import Any, List
 import random
+from math import ceil
+from typing import Any
 
-import numpy as np
 import torch
 from backend.device import is_openvino_device
-
 from backend.models.lcmdiffusion_setting import (
     DiffusionTask,
     LCMDiffusionSetting,
     LCMLora,
 )
 from backend.openvino.pipelines import (
+    get_ov_diffusion_pipeline,
     get_ov_image_to_image_pipeline,
     get_ov_text_to_image_pipeline,
     ov_load_tiny_autoencoder,
-    get_ov_diffusion_pipeline,
 )
 
 try:
-    from diffusers import LCMScheduler
+    from backend.controlnet import (
+        load_controlnet_adapters,
+        update_controlnet_arguments,
+    )
     from backend.pipelines.lcm import (
         get_image_to_image_pipeline,
         get_lcm_model_pipeline,
         load_taesd,
     )
-    from backend.controlnet import (
-        load_controlnet_adapters,
-        update_controlnet_arguments,
-    )
     from backend.pipelines.lcm_lora import get_lcm_lora_pipeline
+    from diffusers import LCMScheduler
 except ImportError:
     print("diffuser library unavailable; disabling pytorch support")
     LCMScheduler = None
 
 
-from constants import DEVICE
 
-from image_ops import resize_pil_image
 from backend.openvino.ov_hc_stablediffusion_pipeline import OvHcLatentConsistency
+from image_ops import resize_pil_image
 
 try:
     # support for token merging; keeping it optional for now
@@ -128,13 +125,13 @@ class LCMTextToImage:
 
     def _is_valid_mode(
         self,
-        modes: List,
+        modes: list,
     ) -> bool:
         return modes.count(True) == 1 or modes.count(False) == 3
 
     def _validate_mode(
         self,
-        modes: List,
+        modes: list,
     ) -> None:
         if not self._is_valid_mode(modes):
             raise ValueError("Invalid mode,delete configs/settings.yaml and retry!")
@@ -327,7 +324,7 @@ class LCMTextToImage:
                 lcm_diffusion_setting.diffusion_task
                 == DiffusionTask.text_to_image.value
             ):
-                print(f"Pipeline : OK")
+                print("Pipeline : OK")
             elif (
                 lcm_diffusion_setting.diffusion_task
                 == DiffusionTask.image_to_image.value

@@ -1,7 +1,8 @@
 import platform
-from constants import DEVICE
-import torch
+
 import openvino as ov
+import torch
+from constants import DEVICE
 
 core = ov.Core()
 

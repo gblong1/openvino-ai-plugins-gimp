@@ -12,24 +12,24 @@ import gi
 gi.require_version("Gimp", "3.0")
 gi.require_version("GimpUi", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gimp, GimpUi, GObject, GLib, Gio, Gtk
 import gettext
-import subprocess
 import json
+
 # import pickle
 import os
-import sys
 import socket
+import subprocess
+import sys
 from enum import IntEnum
-
-import glob
 from pathlib import Path
 
+from gi.repository import Gimp, GimpUi, Gio, GLib, GObject, Gtk
+
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..","openvino_utils")])
-from plugin_utils import show_dialog, save_image, N_
-from model_management_window import ModelManagementWindow
-from tools.tools_utils import base_model_dir, config_path_dir, SDOptionCache
 import config
+from model_management_window import ModelManagementWindow
+from plugin_utils import N_, save_image, show_dialog
+from tools.tools_utils import SDOptionCache, config_path_dir
 
 _ = gettext.gettext
 image_paths = {
@@ -130,7 +130,7 @@ class SDRunner:
         self.sd_data = SDOptionCache(os.path.join(config_path_output["weight_path"], "..", "gimp_openvino_run_sd.json"))
         self.saved_seed = self.sd_data.get("seed")
         self.seed = self.saved_seed
-        
+
     def run(self, dialog):
         procedure = self.procedure
         image = self.image
@@ -139,7 +139,7 @@ class SDRunner:
 
         # Save inference parameters and layers
         weight_path = config_path_output["weight_path"]
-        
+
         Gimp.context_push()
 
         if image:
@@ -149,7 +149,7 @@ class SDRunner:
         if self.seed is None:
             self.sd_data.set("seed",None)
             self.sd_data.save()
-                
+
         self.current_step = 0
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((config.DEFAULT_HOST, config.SERVER_PORT))
@@ -181,7 +181,7 @@ class SDRunner:
                 Gio.file_new_for_path(os.path.join(weight_path, "..", cache_image)),
             )
             result_layer = result.get_layers()[0]
-            
+
             copy = Gimp.Layer.new_from_drawable(result_layer, image_new)
             set_name = "Stable Diffusion -" + str(self.sd_data.get("seed"))
             copy.set_name(set_name)
@@ -201,7 +201,7 @@ class SDRunner:
                     os.remove(os.path.join(my_dir, f_name))
 
             self.result = procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, GLib.Error())
-            self.sd_data.set("seed",self.saved_seed) # restore original seed to cache. 
+            self.sd_data.set("seed",self.saved_seed) # restore original seed to cache.
             self.sd_data.save()
             return self.result
 
@@ -224,7 +224,7 @@ def is_server_running():
             data = s.recv(config.SOCKET_BUFFER_SIZE)
             if data.decode() == "ping":
                 return True
-    except (ConnectionError, OSError, socket.timeout) as e:
+    except (TimeoutError, ConnectionError, OSError):
         # Server not running or connection failed
         return False
 
@@ -237,29 +237,29 @@ def async_load_models(python_path, server_path, model_name, supported_devices, d
         s.sendall(b"kill")
 
         print("stable-diffusion model server killed")
-    except (ConnectionError, OSError) as e:
+    except (ConnectionError, OSError):
         print("No stable-diffusion model server found to kill")
 
     if sys.platform == 'win32':
-        creationflags = subprocess.CREATE_NO_WINDOW 
+        creationflags = subprocess.CREATE_NO_WINDOW
     else:
-        creationflags = 0 # N/A on linux 
-  
+        creationflags = 0 # N/A on linux
+
     #if not show_console:
     #     process = subprocess.Popen([python_path, server_path, model_name, str(supported_devices), device_power_mode],
-    #                             creationflags=creationflags, 
+    #                             creationflags=creationflags,
     #                             stdout=subprocess.PIPE,
     #                             stderr=subprocess.PIPE,
     #                             text=True,
     #                             close_fds=True)
-    # else: 
+    # else:
     #     process = subprocess.Popen([python_path, server_path, model_name, str(supported_devices), device_power_mode],
     #                             close_fds=True)
 
-    process = subprocess.Popen([python_path, 
-                                server_path, 
-                                model_name, 
-                                str(supported_devices), 
+    process = subprocess.Popen([python_path,
+                                server_path,
+                                model_name,
+                                str(supported_devices),
                                 device_power_mode],
                                 close_fds=True)
 
@@ -299,7 +299,7 @@ def on_toggled(widget, dialog):
 def run(procedure, run_mode, image, layer, config, data):
     if run_mode == Gimp.RunMode.INTERACTIVE:
         # Get all paths
-        with open(os.path.join(config_path_dir, "gimp_openvino_config.json"), "r") as file:
+        with open(os.path.join(config_path_dir, "gimp_openvino_config.json")) as file:
             config_path_output = json.load(file)
 
         python_path = config_path_output["python_path"]
@@ -308,12 +308,12 @@ def run(procedure, run_mode, image, layer, config, data):
 
         client = "test-client.py"
         config_path_output["plugin_path"] = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), 
-            "..", 
-            "openvino_utils", 
-            "tools", 
+            os.path.dirname(os.path.realpath(__file__)),
+            "..",
+            "openvino_utils",
+            "tools",
             client)
-        
+
         supported_devices = []
         for device in config_path_output["supported_devices"]:
            if 'GNA' not in device:
@@ -326,7 +326,7 @@ def run(procedure, run_mode, image, layer, config, data):
 
             try:
                 list_layers = image.get_layers()
-            except AttributeError as e:
+            except AttributeError:
                 # Fallback for older GIMP API
                 list_layers = image.list_layers()
 
@@ -341,7 +341,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 mask_layer = Gimp.Layer.new_from_drawable(mask, mask_image)
                 mask_image.insert_layer(mask_layer, None, 0)
 
-              
+
                 save_image(mask_image, mask_layer, os.path.join(config_path_output["weight_path"], "..", "cache0.png"))
 
                 list_layers[0].remove_mask(Gimp.MaskApplyMode.DISCARD)
@@ -352,7 +352,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 #print("mask added back")
 
 
-           
+
 
         if "NPU" in supported_devices:
             supported_modes = ["Best power efficiency", "Balanced", "Best performance"]
@@ -361,14 +361,14 @@ def run(procedure, run_mode, image, layer, config, data):
         device_name_enum = DeviceEnum(supported_modes)
 
         config = procedure.create_config()
-    
+
         sd_option_cache = SDOptionCache(os.path.join(config_path_output["weight_path"], "..", "gimp_openvino_run_sd.json"))
-        
+
         GimpUi.init("stable_diffusion_ov.py")
         use_header_bar = Gtk.Settings.get_default().get_property(
             "gtk-dialogs-use-header"
         )
-        title_bar_label =  "Stable Diffusion : " +  plugin_version 
+        title_bar_label =  "Stable Diffusion : " +  plugin_version
 
         dialog = GimpUi.Dialog(use_header_bar=use_header_bar, title=_(title_bar_label))
         dialog.add_button("_Help", Gtk.ResponseType.HELP)
@@ -417,8 +417,8 @@ def run(procedure, run_mode, image, layer, config, data):
         steps_spin_turbo = GimpUi.prop_spin_button_new(
             config, "num_infer_steps_turbo", step_increment=1, page_increment=0.1, digits=0
         )
-       
-        steps_spin_turbo.set_value(int(sd_option_cache.get("num_infer_steps_turbo")))        
+
+        steps_spin_turbo.set_value(int(sd_option_cache.get("num_infer_steps_turbo")))
 
         # guidance_scale parameter
         gscale_label = Gtk.Label.new_with_mnemonic(_("_Guidance Scale"))
@@ -454,15 +454,15 @@ def run(procedure, run_mode, image, layer, config, data):
                                                   _("_Advanced Settings                                                       "))
         adv_checkbox.connect("toggled", on_toggled, dialog)
         adv_checkbox.show()
-        adv_checkbox.set_active(True) if sd_option_cache.get("advanced_setting") == "True" else adv_checkbox.set_active(False) 
-            
+        adv_checkbox.set_active(True) if sd_option_cache.get("advanced_setting") == "True" else adv_checkbox.set_active(False)
+
         grid.attach(adv_checkbox, 3, 0, 1, 1)
 
         # Hiding the console is WIP
         show_console_checkbox = GimpUi.prop_check_button_new(config, "show_console",
-                                                  _("_Show Console "))        
+                                                  _("_Show Console "))
         #show_console_checkbox.show()
-        show_console_checkbox.set_active(True) #if sd_option_cache.get("show_console") == "True" else show_console_checkbox.set_active(False)             
+        show_console_checkbox.set_active(True) #if sd_option_cache.get("show_console") == "True" else show_console_checkbox.set_active(False)
         #grid.attach(show_console_checkbox, 3, 1, 1, 1)
 
         invisible_label4 = Gtk.Label.new_with_mnemonic(_("_"))
@@ -484,14 +484,10 @@ def run(procedure, run_mode, image, layer, config, data):
         invisible_label8.show()
 
         def power_modes_supported(model_name):
-            if "sd_1.5_square" in model_name or "int8" in model_name: 
-                
+            if "sd_1.5_square" in model_name or "int8" in model_name or model_name in ("sdxl_turbo_square","sd_3.5_med_turbo_square", "sdxl_base_1.0_square", "sd_3.0_med_diffuser_square") and npu_arch != "3720":
+
                 return True
-            
-            elif model_name in ("sdxl_turbo_square","sd_3.5_med_turbo_square", "sdxl_base_1.0_square", "sd_3.0_med_diffuser_square") and npu_arch != "3720":
-                
-                return True
-            
+
             return False
 
         def remove_all_advanced_widgets():
@@ -516,7 +512,7 @@ def run(procedure, run_mode, image, layer, config, data):
             grid.remove(steps_spin_turbo)
             steps_spin_turbo.hide()
 
-            
+
 
             grid.remove(num_images_label)
             num_images_label.hide()
@@ -540,7 +536,7 @@ def run(procedure, run_mode, image, layer, config, data):
             invisible_label6.show()
             invisible_label7.show()
             invisible_label8.show()
-            
+
 
         def populate_advanced_settings():
             sd_option_cache.set("advanced_setting","True")
@@ -551,7 +547,7 @@ def run(procedure, run_mode, image, layer, config, data):
             grid.attach(steps_spin, 1, 4, 1, 1)
 
             grid.attach(steps_label_turbo, 0, 4, 1, 1)
-            grid.attach(steps_spin_turbo, 1, 4, 1, 1)            
+            grid.attach(steps_spin_turbo, 1, 4, 1, 1)
 
             grid.attach(gscale_label, 0, 5, 1, 1)
             grid.attach(gscale_spin, 1, 5, 1, 1)
@@ -563,26 +559,26 @@ def run(procedure, run_mode, image, layer, config, data):
             grid.attach(seed_label, 0, 6, 1, 1)
 
             grid.attach(adv_power_mode_label, 0, 7, 1, 1)
-            grid.attach(adv_power_mode_combo, 1, 7, 1, 1)            
+            grid.attach(adv_power_mode_combo, 1, 7, 1, 1)
             model_name = config.get_property("model_name")
             if power_modes_supported(model_name):
                 adv_power_mode_label.show()
                 adv_power_mode_combo.show()
-            
+
             if model_name in ("sdxl_turbo_square","sd_3.5_med_turbo_square"):
-                
+
                 gscale_label_turbo.show()
-                gscale_spin_turbo.show()  
+                gscale_spin_turbo.show()
                 steps_label_turbo.show()
                 steps_spin_turbo.show()
 
             else:
                 steps_label.show()
-                steps_spin.show()                
+                steps_spin.show()
                 gscale_label.show()
                 gscale_spin.show()
 
-          
+
             seed_label.show()
             seed.show()
             num_images_label.show()
@@ -593,12 +589,12 @@ def run(procedure, run_mode, image, layer, config, data):
             invisible_label6.hide()
             invisible_label7.hide()
             invisible_label8.hide()
-            
+
 
         if adv_checkbox.get_active():
             model_name = config.get_property("model_name")
             populate_advanced_settings()
-            
+
 
         # Prompt text
         prompt_text = Gtk.Entry.new()
@@ -739,7 +735,7 @@ def run(procedure, run_mode, image, layer, config, data):
         model_name = sd_option_cache.get("model_name",default=config.get_property("model_name"))
         device_power_mode = "best performance"
         if power_modes_supported(model_name):
-            
+
                 adv_power_mode_label.show()
                 adv_power_mode_combo.show()
         else:
@@ -757,17 +753,17 @@ def run(procedure, run_mode, image, layer, config, data):
             gscale_label_turbo.show()
             gscale_spin_turbo.show()
             steps_label.hide()
-            steps_spin.hide()   
+            steps_spin.hide()
             steps_label_turbo.show()
             steps_spin_turbo.show()
-         
+
         else:
 
             gscale_label_turbo.hide()
-            gscale_spin_turbo.hide() 
+            gscale_spin_turbo.hide()
             steps_label_turbo.hide()
-            steps_spin_turbo.hide()  
-                  
+            steps_spin_turbo.hide()
+
 
 
         if "sd_3.0" in model_name:
@@ -776,7 +772,7 @@ def run(procedure, run_mode, image, layer, config, data):
         if is_server_running():
             run_button.set_sensitive(True)
             if adv_checkbox.get_active() and power_modes_supported(model_name):
-                
+
                 device_power_mode = config.get_property("power_mode")
 
 
@@ -798,22 +794,22 @@ def run(procedure, run_mode, image, layer, config, data):
                 gscale_label.hide()
                 gscale_spin.hide()
                 gscale_label_turbo.show()
-                gscale_spin_turbo.show()    
+                gscale_spin_turbo.show()
                 steps_label.hide()
-                steps_spin.hide()   
+                steps_spin.hide()
                 steps_label_turbo.show()
-                steps_spin_turbo.show()                            
+                steps_spin_turbo.show()
             else:
 
                 gscale_label_turbo.hide()
-                gscale_spin_turbo.hide() 
+                gscale_spin_turbo.hide()
                 steps_label_turbo.hide()
-                steps_spin_turbo.hide()                
+                steps_spin_turbo.hide()
                 gscale_label.show()
                 gscale_spin.show()
                 steps_label.show()
-                steps_spin.show()   
-                
+                steps_spin.show()
+
 
 
             # default this to True, and some below conditions will set it to False.
@@ -844,7 +840,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 else:
                     device_power_mode_tmp = device_power_mode
                     adv_power_mode_label.hide()
-                    adv_power_mode_combo.hide()                  
+                    adv_power_mode_combo.hide()
 
             if (model_name_tmp==model_name   and
                 device_power_mode_tmp==device_power_mode):
@@ -950,15 +946,15 @@ def run(procedure, run_mode, image, layer, config, data):
 
                 if adv_checkbox.get_active():
                     sd_option_cache.set("num_images", config.get_property("num_images"))
-                    
+
 
                     if config.get_property("model_name") in ("sdxl_turbo_square","sd_3.5_med_turbo_square"):
                         sd_option_cache.set("guidance_scale_turbo", config.get_property("guidance_scale_turbo"))
                         sd_option_cache.set("num_infer_steps_turbo", config.get_property("num_infer_steps_turbo"))
                     else:
-        
+
                         sd_option_cache.set("guidance_scale", config.get_property("guidance_scale"))
-                        sd_option_cache.set("num_infer_steps", config.get_property("num_infer_steps"))                        
+                        sd_option_cache.set("num_infer_steps", config.get_property("num_infer_steps"))
 
                     sd_option_cache.set("strength", config.get_property("strength"))
                     sd_option_cache.set("power_mode", config.get_property("power_mode"))
@@ -969,7 +965,7 @@ def run(procedure, run_mode, image, layer, config, data):
 
                 else:
                     sd_option_cache.set("num_images", 1)
-         
+
                     guidance_scale = 7.5
                     if config.get_property("model_name") == "sd_1.5_square_lcm":
                         num_infer_steps = 4
@@ -982,17 +978,17 @@ def run(procedure, run_mode, image, layer, config, data):
                         sd_option_cache.set("num_infer_steps_turbo", num_infer_steps)
                     if config.get_property("model_name") == "sd_3.5_med_turbo_square":
                         num_infer_steps = 6
-                        guidance_scale = 0.8   
+                        guidance_scale = 0.8
                         sd_option_cache.set("guidance_scale_turbo", guidance_scale)
-                        sd_option_cache.set("num_infer_steps_turbo", num_infer_steps)                     
+                        sd_option_cache.set("num_infer_steps_turbo", num_infer_steps)
                     else:
                         num_infer_steps = 20
                         sd_option_cache.set("guidance_scale", guidance_scale)
                         sd_option_cache.set("num_infer_steps", num_infer_steps)
 
-                    
 
-                    
+
+
                     sd_option_cache.set("seed", None)
                     sd_option_cache.set("strength", 1.0)
                     sd_option_cache.set("power_mode", "best performance")
@@ -1006,9 +1002,9 @@ def run(procedure, run_mode, image, layer, config, data):
                     initial_image = None
 
                 sd_option_cache.set("initial_image", initial_image)
-                
-                sd_option_cache.save() 
-                                
+
+                sd_option_cache.save()
+
                 runner = SDRunner(procedure, image, layer, progress_bar, config_path_output)
 
                 sd_run_label.set_label("Running Stable Diffusion...")
@@ -1042,10 +1038,10 @@ def run(procedure, run_mode, image, layer, config, data):
 
                 server = "stable_diffusion_ov_server.py"
                 server_path = os.path.join(
-                    os.path.dirname(os.path.realpath(__file__)), 
+                    os.path.dirname(os.path.realpath(__file__)),
                     "..",
                     "openvino_utils",
-                    "tools", 
+                    "tools",
                     server)
 
                 run_load_model_thread = threading.Thread(target=async_load_models, args=(python_path, server_path, model_name, str(supported_devices), device_power_mode, show_console_checkbox.get_active(), dialog))
@@ -1097,7 +1093,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 remove_all_advanced_widgets()
                 if adv_checkbox.get_active():
                     populate_advanced_settings()
-             
+
 
             else:
                 model_management_window.stop_poll_thread()
@@ -1134,26 +1130,26 @@ class StableDiffusion(Gimp.PlugIn):
             procedure.set_attribution("Arisha Kumar", "OpenVINO-AI-Plugins", "2023")
             procedure.add_menu_path("<Image>/Layer/OpenVINO-AI-Plugins/")
 
-            
+
 
             # procedure.add_argument_from_property(self, "initial_image")
             procedure.add_int_argument("num_images",_("_Number of Images (Default:1)"),
                                        "Number of Images to generate", 1, 200, 1,
                                         GObject.ParamFlags.READWRITE)
-            procedure.add_int_argument("num_infer_steps",_("_Number of Inference steps (Default:20)"), 
+            procedure.add_int_argument("num_infer_steps",_("_Number of Inference steps (Default:20)"),
                                        "Number of Inference steps (Default:20)", 1, 200, 20,
                                         GObject.ParamFlags.READWRITE)
-            procedure.add_int_argument("num_infer_steps_turbo",_("_Number of Inference steps (Default:2)"), 
+            procedure.add_int_argument("num_infer_steps_turbo",_("_Number of Inference steps (Default:2)"),
                                        "Number of Inference steps (Default:2)", 1, 200, 2,
-                                        GObject.ParamFlags.READWRITE)            
-            procedure.add_double_argument("guidance_scale",_("_Guidance Scale (Default:7.5)"), 
+                                        GObject.ParamFlags.READWRITE)
+            procedure.add_double_argument("guidance_scale",_("_Guidance Scale (Default:7.5)"),
                                           "Guidance Scale (Default:7.5)", 0.0, 20.0, 7.5,
                                           GObject.ParamFlags.READWRITE)
-            
-            procedure.add_double_argument("guidance_scale_turbo",_("_Guidance Scale Turbo (Default:0.5)"), 
+
+            procedure.add_double_argument("guidance_scale_turbo",_("_Guidance Scale Turbo (Default:0.5)"),
                                           "Guidance Scale Turbo (Default:0.5)", 0.0, 1.0, 0.5,
                                           GObject.ParamFlags.READWRITE)
-            procedure.add_double_argument("strength",_("_Strength of Initial Image (Default:0.8)"), 
+            procedure.add_double_argument("strength",_("_Strength of Initial Image (Default:0.8)"),
                                           "_Strength of Initial Image (Default:0.8)", 0.0, 1.0, 0.8,
                                            GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("model_name",_("Model Name"),
@@ -1176,7 +1172,7 @@ class StableDiffusion(Gimp.PlugIn):
                                             _("_Use Initial Image (Default: Open Image in Canvas"),
                                            "Use Initial Image (Default: Open Image in Canvas",
                                            False,
-                                           GObject.ParamFlags.READWRITE) 
+                                           GObject.ParamFlags.READWRITE)
             procedure.set_sensitivity_mask (Gimp.ProcedureSensitivityMask.ALWAYS)
 
         return procedure

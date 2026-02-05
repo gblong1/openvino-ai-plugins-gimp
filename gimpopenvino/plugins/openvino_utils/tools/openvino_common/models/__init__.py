@@ -16,19 +16,17 @@
 
 
 
-from .model import Model
-from .utils import InputTransform, OutputTransform, RESIZE_TYPES
-
-
 from .image_model import ImageModel
+from .model import Model
+from .utils import RESIZE_TYPES, InputTransform, OutputTransform
 
 __all__ = [
-   
+
     'Model',
     'RESIZE_TYPES',
     'OutputTransform',
     'ImageModel',
     'InputTransform',
 
-  
+
 ]

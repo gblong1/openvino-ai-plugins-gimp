@@ -1,9 +1,9 @@
 from enum import Enum
-from PIL import Image
-from typing import Any, Optional, Union
+from typing import Any
 
 from constants import LCM_DEFAULT_MODEL, LCM_DEFAULT_MODEL_OPENVINO
 from paths import FastStableDiffusionPaths
+from PIL import Image
 from pydantic import BaseModel
 
 
@@ -21,14 +21,14 @@ class DiffusionTask(str, Enum):
 
 class Lora(BaseModel):
     models_dir: str = FastStableDiffusionPaths.get_lora_models_path()
-    path: Optional[Any] = None
-    weight: Optional[float] = 0.5
+    path: Any | None = None
+    weight: float | None = 0.5
     fuse: bool = True
     enabled: bool = False
 
 
 class ControlNetSetting(BaseModel):
-    adapter_path: Optional[str] = None  # ControlNet adapter path
+    adapter_path: str | None = None  # ControlNet adapter path
     conditioning_scale: float = 0.5
     enabled: bool = False
     _control_image: Image = None  # Control image, PIL image
@@ -36,10 +36,10 @@ class ControlNetSetting(BaseModel):
 
 class GGUFModel(BaseModel):
     gguf_models: str = FastStableDiffusionPaths.get_gguf_models_path()
-    diffusion_path: Optional[str] = None
-    clip_path: Optional[str] = None
-    t5xxl_path: Optional[str] = None
-    vae_path: Optional[str] = None
+    diffusion_path: str | None = None
+    clip_path: str | None = None
+    t5xxl_path: str | None = None
+    vae_path: str | None = None
 
 
 class LCMDiffusionSetting(BaseModel):
@@ -47,30 +47,30 @@ class LCMDiffusionSetting(BaseModel):
     openvino_lcm_model_id: str = LCM_DEFAULT_MODEL_OPENVINO
     use_offline_model: bool = False
     use_lcm_lora: bool = False
-    lcm_lora: Optional[LCMLora] = LCMLora()
+    lcm_lora: LCMLora | None = LCMLora()
     use_tiny_auto_encoder: bool = False
     use_openvino: bool = False
     prompt: str = ""
     negative_prompt: str = ""
     init_image: Any = None
-    strength: Optional[float] = 0.6
-    image_height: Optional[int] = 512
-    image_width: Optional[int] = 512
-    inference_steps: Optional[int] = 1
-    guidance_scale: Optional[float] = 1
-    clip_skip: Optional[int] = 1
-    token_merging: Optional[float] = 0
-    number_of_images: Optional[int] = 1
-    seed: Optional[int] = 123123
+    strength: float | None = 0.6
+    image_height: int | None = 512
+    image_width: int | None = 512
+    inference_steps: int | None = 1
+    guidance_scale: float | None = 1
+    clip_skip: int | None = 1
+    token_merging: float | None = 0
+    number_of_images: int | None = 1
+    seed: int | None = 123123
     use_seed: bool = False
     use_safety_checker: bool = False
     diffusion_task: str = DiffusionTask.text_to_image.value
-    lora: Optional[Lora] = Lora()
-    controlnet: Optional[Union[ControlNetSetting, list[ControlNetSetting]]] = None
+    lora: Lora | None = Lora()
+    controlnet: ControlNetSetting | list[ControlNetSetting] | None = None
     dirs: dict = {
         "controlnet": FastStableDiffusionPaths.get_controlnet_models_path(),
         "lora": FastStableDiffusionPaths.get_lora_models_path(),
     }
     rebuild_pipeline: bool = False
     use_gguf_model: bool = False
-    gguf_model: Optional[GGUFModel] = GGUFModel()
+    gguf_model: GGUFModel | None = GGUFModel()

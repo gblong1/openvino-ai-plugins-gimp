@@ -3,29 +3,30 @@ Copyright(C) 2022-2023 Intel Corporation
 SPDX - License - Identifier: Apache - 2.0
 
 """
+import glob
 import inspect
-from typing import List, Optional, Union, Dict
-import numpy as np
-# openvino
-from openvino import Core, Model
-# tokenizer
-from transformers import CLIPTokenizer
-import torch
-
-from diffusers import DiffusionPipeline
-from diffusers.schedulers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler
-import cv2
+import json
 import os
-import sys
 
+import cv2
+import numpy as np
 
 #For GIF
 import PIL
-from PIL import Image
-import glob
-import json
+import torch
+from diffusers import DiffusionPipeline
+from diffusers.schedulers import (
+    EulerDiscreteScheduler,
+    LMSDiscreteScheduler,
+)
 
-import time
+# openvino
+from openvino import Core
+from PIL import Image
+
+# tokenizer
+from transformers import CLIPTokenizer
+
 
 def prepare_mask_and_masked_image(image, mask, height, width, return_image: bool = False):
     """
@@ -102,27 +103,27 @@ def prepare_mask_and_masked_image(image, mask, height, width, return_image: bool
         mask[mask >= 0.5] = 1
 
         # Image as float32
-        image = image.to(dtype=torch.float32)       
-        
+        image = image.to(dtype=torch.float32)
+
     elif isinstance(mask, torch.Tensor):
         raise TypeError(f"`mask` is a torch.Tensor but `image` (type: {type(image)} is not")
     else:
-    
+
         # preprocess image
         if isinstance(image, (PIL.Image.Image, np.ndarray)):
             image = [image]
         if isinstance(image, list) and isinstance(image[0], PIL.Image.Image):
             # resize all images w.r.t passed height an width
-            
+
             image = [i.resize((width, height), resample=PIL.Image.LANCZOS) for i in image]
             image = [np.array(i.convert("RGB"))[None, :] for i in image]
             image = np.concatenate(image, axis=0)
         elif isinstance(image, list) and isinstance(image[0], np.ndarray):
             image = np.concatenate([i[None, :] for i in image], axis=0)
-        
+
         image = image.transpose(0, 3, 1, 2)
         image = torch.from_numpy(image).to(dtype=torch.float32) / 127.5 - 1.0
-     
+
         # preprocess mask
         if isinstance(mask, (PIL.Image.Image, np.ndarray)):
             mask = [mask]
@@ -133,7 +134,7 @@ def prepare_mask_and_masked_image(image, mask, height, width, return_image: bool
             mask = mask.astype(np.float32) / 255.0
         elif isinstance(mask, list) and isinstance(mask[0], np.ndarray):
             mask = np.concatenate([m[None, None, :] for m in mask], axis=0)
-        
+
 
         mask[mask < 0.5] = 0
         mask[mask >= 0.5] = 1
@@ -143,13 +144,13 @@ def prepare_mask_and_masked_image(image, mask, height, width, return_image: bool
     print("image shape", image.shape)
     print("mask shape", mask.shape)
     print("masked_image shape", masked_image.shape)
-  
+
 
     # n.b. ensure backwards compatibility as old function does not return image
     if return_image:
         return mask, masked_image, image
 
-    return mask, masked_image 
+    return mask, masked_image
 
 def result(var):
     return next(iter(var.values()))
@@ -163,13 +164,13 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
             tokenizer="openai/clip-vit-large-patch14",
             device=["CPU","CPU","CPU","CPU"],
             blobs=False
-            
+
             ):
-            
+
         #self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
-        try: 
+        try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model,local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
@@ -178,7 +179,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')})  # Adding caching to reduce init time
         print("Setting caching")
-        
+
         print("Text Device:", device[0])
         self.text_encoder = self.load_model(model, "text_encoder", device[0])
         self._text_encoder_output = self.text_encoder.output(0)
@@ -209,7 +210,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
             with open(os.path.join(model, f"{model_name}.blob"), "rb") as f:
                 return self.core.import_model(f.read(), device)
         return self.core.compile_model(os.path.join(model, f"{model_name}.xml"), device)
-    
+
 
     def __call__(
             self,
@@ -236,23 +237,23 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
             return_tensors="np",
         )
         text_embeddings = self.text_encoder(text_input.input_ids)[self._text_encoder_output]
-    
+
 
         # do classifier free guidance
         do_classifier_free_guidance = guidance_scale > 1.0
         if do_classifier_free_guidance:
-        
+
             if negative_prompt is None:
                 uncond_tokens = [""]
             elif isinstance(negative_prompt, str):
                 uncond_tokens = [negative_prompt]
             else:
                 uncond_tokens = negative_prompt
-                
+
             tokens_uncond = self.tokenizer(
                 uncond_tokens,
                 padding="max_length",
-                max_length=self.tokenizer.model_max_length, #truncation=True,  
+                max_length=self.tokenizer.model_max_length, #truncation=True,
                 return_tensors="np"
             )
             uncond_embeddings = self.text_encoder(tokens_uncond.input_ids)[self._text_encoder_output]
@@ -261,7 +262,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
         # set timesteps
         accepts_offset = "offset" in set(inspect.signature(scheduler.set_timesteps).parameters.keys())
         extra_set_kwargs = {}
-        
+
         if accepts_offset:
             extra_set_kwargs["offset"] = 1
 
@@ -269,7 +270,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
 
         timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, scheduler)
         latent_timestep = timesteps[:1]
-        
+
         print("---Before prepare mask and masked image size---", image.size)
         print("---Before prepare mask and masked MASK size---", mask_image.size)
 
@@ -277,8 +278,8 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
         mask, masked_image, init_image = prepare_mask_and_masked_image(
             image, mask_image, self.height, self.width, return_image=True)
         print("After prepare mask and masked image", masked_image.shape)
-        print("before prepare mask latents")     
-        
+        print("before prepare mask latents")
+
         mask, masked_image_latents = self.prepare_mask_latents(mask, masked_image, do_classifier_free_guidance)
 
         print("After prepare mask")
@@ -295,7 +296,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
         if accepts_eta:
             extra_step_kwargs["eta"] = eta
         if create_gif:
-            frames = []        
+            frames = []
 
         for i, t in enumerate(self.progress_bar(timesteps)):
             if callback:
@@ -304,32 +305,32 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
             # expand the latents if we are doing classifier free guidance
             #latent_model_input = np.concatenate([latents] * 2) if do_classifier_free_guidance else latents
             #latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-            
+
             noise_pred = []
-            latent_model_input = latents 
+            latent_model_input = latents
             latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-            
+
             #print("loop latent_model_input:", latent_model_input.shape)
             #print("loop mask:", mask.shape)
             #print("loop masked_image_latents:", masked_image_latents.shape)
             latent_model_input = np.concatenate([latent_model_input, mask, masked_image_latents], axis=1)
-            
-            
+
+
             time_proj_dict = {"t" : np.expand_dims(np.float32(t), axis=0)}
             self.infer_request_time_proj.start_async(time_proj_dict)
             self.infer_request_time_proj.wait()
-            time_proj = self.infer_request_time_proj.get_output_tensor(0).data.astype(np.float32)     
+            time_proj = self.infer_request_time_proj.get_output_tensor(0).data.astype(np.float32)
 
-            
+
             # predict the noise residual
             #noise_pred = self.unet([latent_model_input, float(t), text_embeddings])[self._unet_output]
-            
+
             input_dict_neg = {"latent_model_input":latent_model_input, "encoder_hidden_states": np.expand_dims(text_embeddings[0], axis=0), "time_proj": np.float32(time_proj)}
             self.infer_request_neg.start_async(input_dict_neg)
-       
+
             input_dict = {"latent_model_input":latent_model_input, "encoder_hidden_states": np.expand_dims(text_embeddings[1], axis=0), "time_proj": np.float32(time_proj)}
             self.infer_request.start_async(input_dict)
-            
+
             self.infer_request_neg.wait()
             self.infer_request.wait()
             noise_pred_neg = self.infer_request_neg.get_output_tensor(0)
@@ -337,7 +338,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
 
 
             noise_pred.append(noise_pred_neg.data.astype(np.float32))
-            noise_pred.append(noise_pred_pos.data.astype(np.float32)) 
+            noise_pred.append(noise_pred_pos.data.astype(np.float32))
             #print("noise_pred:",noise_pred)
             # perform guidance
             if do_classifier_free_guidance:
@@ -348,18 +349,18 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
 
             # compute the previous noisy sample x_t -> x_t-1
             latents = scheduler.step(torch.from_numpy(noise_pred), t, torch.from_numpy(latents), **extra_step_kwargs)["prev_sample"].numpy()
-     
+
             if create_gif:
                 frames.append(latents)
-              
+
         if callback:
             callback(num_inference_steps, callback_userdata)
 
         # scale and decode the image latents with vae
         latents = 1 / 0.18215 * latents
-        
+
         image = self.vae_decoder(latents)[self._vae_d_output]
-      
+
         image = self.postprocess_image(image)
 
         if create_gif:
@@ -373,13 +374,13 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
                 cv2.imwrite(output, image)
             with open(os.path.join(gif_folder, "prompt.json"), "w") as file:
                 json.dump({"prompt": prompt}, file)
-            frames_image =  [Image.open(image) for image in glob.glob(f"{gif_folder}/*.png")]  
+            frames_image =  [Image.open(image) for image in glob.glob(f"{gif_folder}/*.png")]
             frame_one = frames_image[0]
             gif_file=os.path.join(gif_folder,"stable_diffusion.gif")
             frame_one.save(gif_file, format="GIF", append_images=frames_image, save_all=True, duration=100, loop=0)
 
         return image
-    
+
     def prepare_latents(self, input_image:PIL.Image.Image = None, latent_timestep:torch.Tensor = None, scheduler = LMSDiscreteScheduler):
         """
         Function for getting initial latents for starting generation
@@ -394,41 +395,41 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
                 Image encoded in latent space
         """
         latents_shape = (1, 4, self.height // 8, self.width // 8)
-   
+
         noise = np.random.randn(*latents_shape).astype(np.float32)
         # if we use LMSDiscreteScheduler, let's make sure latents are mulitplied by sigmas
-        
+
         if input_image is None:
             #print("Image is NONE")
-            
+
             if isinstance(scheduler, LMSDiscreteScheduler):
-                
+
                 noise = noise * scheduler.sigmas[0].numpy()
                 return noise
             elif isinstance(scheduler, EulerDiscreteScheduler):
-                
+
                 noise = noise * scheduler.sigmas.max().numpy()
                 return noise
             else:
                 noise = noise * scheduler.init_noise_sigma
                 return noise
-    
-        
+
+
         moments = self.vae_encoder(input_image)[self._vae_e_output]
-      
+
         mean, logvar = np.split(moments, 2, axis=1)
-  
+
         std = np.exp(logvar * 0.5)
         latents = (mean + std * np.random.randn(*mean.shape)) * 0.18215
-       
-         
+
+
         latents = scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
-        return latents        
+        return latents
 
     def prepare_mask_latents(self, mask = None, masked_image = None, do_classifier_free_guidance = True):
-         mask = torch.nn.functional.interpolate(mask, size=(self.height // 8, self.width // 8)).numpy()                                        
-         moments = self.vae_encoder(masked_image)[self._vae_e_output] 
-         mean, logvar = np.split(moments, 2, axis=1) 
+         mask = torch.nn.functional.interpolate(mask, size=(self.height // 8, self.width // 8)).numpy()
+         moments = self.vae_encoder(masked_image)[self._vae_e_output]
+         mean, logvar = np.split(moments, 2, axis=1)
          std = np.exp(logvar * 0.5)
          masked_image_latents = (mean + std * np.random.randn(*mean.shape)) * 0.18215
          mask = mask #np.concatenate([mask] * 2) if do_classifier_free_guidance else mask
@@ -456,7 +457,7 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
         """
         image = np.clip(image / 2 + 0.5, 0, 1)
         image = (image[0].transpose(1, 2, 0)[:, :, ::-1] * 255).astype(np.uint8)
-                        
+
         return image
 
 
@@ -473,10 +474,10 @@ class StableDiffusionEngineInpaintingAdvanced(DiffusionPipeline):
                Values that approach 1.0 allow for lots of variations but will also produce images that are not semantically consistent with the input.
         """
         # get the original timestep using init_timestep
-   
+
         init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
-    
+
         t_start = max(num_inference_steps - init_timestep, 0)
         timesteps = scheduler.timesteps[t_start:]
 
-        return timesteps, num_inference_steps - t_start 
+        return timesteps, num_inference_steps - t_start

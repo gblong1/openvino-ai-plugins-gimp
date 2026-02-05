@@ -1,7 +1,8 @@
 import os
-import constants
 from pathlib import Path
 from time import time
+
+import constants
 from utils import get_image_file_extension
 
 

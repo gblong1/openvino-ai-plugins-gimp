@@ -10,9 +10,8 @@ Tests socket servers on ports:
 import socket
 import threading
 import time
-import pytest
-from unittest.mock import Mock, MagicMock, patch
 
+import pytest
 
 # ============================================================================
 # Port 65432: Main Stable Diffusion Server Tests
@@ -23,7 +22,7 @@ from unittest.mock import Mock, MagicMock, patch
 def test_main_server_basic_connection(socket_server_factory):
     """Test basic connection to main SD server on port 65432."""
     server = socket_server_factory(port=65432, response=b"OK")
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -40,7 +39,7 @@ def test_main_server_basic_connection(socket_server_factory):
 def test_main_server_ping_command(socket_server_factory):
     """Test ping command to verify server responsiveness."""
     server = socket_server_factory(port=65432, response=b"ping")
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -57,7 +56,7 @@ def test_main_server_ping_command(socket_server_factory):
 def test_main_server_model_name_query():
     """Test querying model name from main server."""
     stop_event = threading.Event()
-    
+
     def server_thread():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -72,17 +71,17 @@ def test_main_server_model_name_query():
                             data = conn.recv(1024)
                             if data.decode() == "model_name":
                                 conn.sendall(b"sd_1.5_square")
-                    except socket.timeout:
+                    except TimeoutError:
                         continue
                     except Exception:
                         break
             except Exception:
                 pass
-    
+
     thread = threading.Thread(target=server_thread, daemon=True)
     thread.start()
     time.sleep(0.2)
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -100,7 +99,7 @@ def test_main_server_model_name_query():
 def test_main_server_multiple_connections(socket_server_factory):
     """Test handling multiple sequential connections."""
     server = socket_server_factory(port=65432, response=b"OK")
-    
+
     try:
         for i in range(3):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
@@ -122,7 +121,7 @@ def test_main_server_multiple_connections(socket_server_factory):
 def test_handshake_server_ready_signal(socket_server_factory):
     """Test handshake server receives Ready signal on port 65433."""
     server = socket_server_factory(port=65433, response=b"ACK")
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -140,7 +139,7 @@ def test_handshake_server_connection():
     """Test basic connection to handshake server."""
     stop_event = threading.Event()
     received_data = []
-    
+
     def server_thread():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -155,17 +154,17 @@ def test_handshake_server_connection():
                             data = conn.recv(1024)
                             received_data.append(data.decode())
                             break
-                    except socket.timeout:
+                    except TimeoutError:
                         continue
                     except Exception:
                         break
             except Exception:
                 pass
-    
+
     thread = threading.Thread(target=server_thread, daemon=True)
     thread.start()
     time.sleep(0.2)
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -187,7 +186,7 @@ def test_handshake_server_connection():
 def test_model_management_server_connection(socket_server_factory):
     """Test basic connection to model management server on port 65434."""
     server = socket_server_factory(port=65434, response=b"OK")
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -204,7 +203,7 @@ def test_model_management_server_connection(socket_server_factory):
 def test_model_management_server_ping(socket_server_factory):
     """Test ping command on model management server."""
     server = socket_server_factory(port=65434, response=b"ping")
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -221,7 +220,7 @@ def test_model_management_server_ping(socket_server_factory):
 def test_model_management_get_all_models():
     """Test get_all_model_details command on model management server."""
     stop_event = threading.Event()
-    
+
     def server_thread():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -237,17 +236,17 @@ def test_model_management_get_all_models():
                             if data.decode() == "get_all_model_details":
                                 # Send number of installed models
                                 conn.sendall(b"0")
-                    except socket.timeout:
+                    except TimeoutError:
                         continue
                     except Exception:
                         break
             except Exception:
                 pass
-    
+
     thread = threading.Thread(target=server_thread, daemon=True)
     thread.start()
     time.sleep(0.2)
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(5.0)
@@ -279,7 +278,7 @@ def test_socket_connection_refused():
 def test_socket_timeout():
     """Test socket timeout handling."""
     stop_event = threading.Event()
-    
+
     def server_thread():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -292,11 +291,11 @@ def test_socket_timeout():
                     time.sleep(0.1)
             except Exception:
                 pass
-    
+
     thread = threading.Thread(target=server_thread, daemon=True)
     thread.start()
     time.sleep(0.2)
-    
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
             client.settimeout(1.0)

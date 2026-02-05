@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # Copyright(C) 2022-2023 Intel Corporation
 # SPDX - License - Identifier: Apache - 2.0
-import os
 import json
+import os
 
 base_model_dir = (
     os.path.join(os.environ.get("GIMP_OPENVINO_MODELS_PATH"))
@@ -13,13 +13,13 @@ base_model_dir = (
 config_path_dir = (
     os.path.join(os.environ.get("GIMP_OPENVINO_CONFIG_PATH"))
     if os.environ.get("GIMP_OPENVINO_CONFIG_PATH") is not None
-    else os.path.join(os.path.dirname(__file__)) 
+    else os.path.join(os.path.dirname(__file__))
 )
 
 def get_weight_path():
     config_path = config_path_dir
     #data={}
-    with open(os.path.join(config_path, "gimp_openvino_config.json"), "r") as file:
+    with open(os.path.join(config_path, "gimp_openvino_config.json")) as file:
         data = json.load(file)
 
     weight_path=data["weight_path"]
@@ -63,7 +63,7 @@ class SDOptionCache:
         """
         try:
             if os.path.exists(self.cache_path):
-                with open(self.cache_path, "r") as file:
+                with open(self.cache_path) as file:
                     json_data = json.load(file)
                     self.options.update(json_data)
         except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -81,7 +81,7 @@ class SDOptionCache:
             The value of the option, or the default value.
         """
         return self.options.get(key, default)
-    
+
     def set(self, key, value):
         """
         Set a specific key to a given value in the options.
@@ -93,7 +93,7 @@ class SDOptionCache:
         if key not in self.default_options:
             raise KeyError(f"'{key}' is not a valid option key.")
         self.options[key] = value
-    
+
     def update(self, updates):
         """
         Update options with a dictionary of key-value pairs.
@@ -113,7 +113,7 @@ class SDOptionCache:
             with open(self.cache_path, "w") as file:
                 json.dump(self.options, file, indent=4)
             #print(f"Options written to {self.cache_path} successfully.")
-        except IOError as e:
+        except OSError as e:
             print(f"Error writing to {self.cache_path}: {e}")
 
 

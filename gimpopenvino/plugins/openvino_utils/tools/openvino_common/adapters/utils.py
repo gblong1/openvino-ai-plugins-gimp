@@ -14,7 +14,7 @@
  limitations under the License.
 """
 
-from typing import Optional
+
 from openvino import layout_helpers
 
 
@@ -34,7 +34,7 @@ class Layout:
         if len(shape) == 4:
             return 'NCHW' if shape[1] in range(1, 5) else 'NHWC'
 
-        raise RuntimeError("Get layout from shape method doesn't support {}D shape".format(len(shape)))
+        raise RuntimeError(f"Get layout from shape method doesn't support {len(shape)}D shape")
 
     @staticmethod
     def from_openvino(input):
@@ -54,7 +54,7 @@ class Layout:
         return user_layouts.get('', '')
 
     @staticmethod
-    def parse_layouts(layout_string: str) -> Optional[dict]:
+    def parse_layouts(layout_string: str) -> dict | None:
         '''
         Parse layout parameter in format "input0:NCHW,input1:NC" or "NCHW" (applied to all inputs)
         '''

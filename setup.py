@@ -1,14 +1,14 @@
-from setuptools import setup, find_packages
-import os
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 this_dir     = Path(__file__).resolve().parent
 weights_dir  = this_dir.joinpath("weights")
 readme       = this_dir.joinpath("README.md")
 
-with open(readme, "r", encoding="utf8") as fh:
+with open(readme, encoding="utf8") as fh:
     long_description = fh.read()
 
 
@@ -43,7 +43,7 @@ def get_plugin_version(file_dir=None):
             cwd=file_dir,
             encoding="utf-8"
         ).strip()
-        
+
         # Normalize the git version to PEP 440
         match = re.match(r"v?(\d+\.\d+\.\d+)(?:-(\d+)-g[0-9a-f]+)?", raw_version)
 
@@ -56,7 +56,7 @@ def get_plugin_version(file_dir=None):
             raise ValueError(f"Invalid version format: {raw_version}")
     except Exception as e:
         print(f"Error obtaining version: {e}")
-        return "0.0.0"  # Fallback version    
+        return "0.0.0"  # Fallback version
 
 plugin_version = get_plugin_version(this_dir)
 

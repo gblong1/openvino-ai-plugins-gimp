@@ -1,23 +1,20 @@
-from constants import LCM_DEFAULT_MODEL
-from diffusers import (
-    DiffusionPipeline,
-    AutoencoderTiny,
-    UNet2DConditionModel,
-    LCMScheduler,
-    StableDiffusionPipeline,
-)
+import pathlib
+from typing import Any
+
 import torch
 from backend.tiny_autoencoder import get_tiny_autoencoder_repo_id
-from typing import Any
+from constants import LCM_DEFAULT_MODEL
 from diffusers import (
+    AutoencoderTiny,
+    AutoPipelineForImage2Image,
+    AutoPipelineForText2Image,
+    DiffusionPipeline,
     LCMScheduler,
     StableDiffusionImg2ImgPipeline,
+    StableDiffusionPipeline,
     StableDiffusionXLImg2ImgPipeline,
-    AutoPipelineForText2Image,
-    AutoPipelineForImage2Image,
-    StableDiffusionControlNetPipeline,
+    UNet2DConditionModel,
 )
-import pathlib
 
 
 def _get_lcm_pipeline_from_base_model(

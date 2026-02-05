@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from typing import Any
 
 try:
@@ -21,9 +20,8 @@ except ImportError:
 
 from backend.device import is_openvino_device
 from backend.tiny_autoencoder import get_tiny_autoencoder_repo_id
-from constants import DEVICE, LCM_DEFAULT_MODEL_OPENVINO
+from constants import LCM_DEFAULT_MODEL_OPENVINO
 from paths import get_base_folder_name
-
 
 if is_openvino_device():
     from huggingface_hub import snapshot_download
@@ -116,5 +114,5 @@ def get_ov_diffusion_pipeline(
         ov_config={"CACHE_DIR": ""},
         device=os.environ["DEVICE"].upper(),
         )
-    
+
     return pipeline

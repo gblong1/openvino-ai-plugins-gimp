@@ -1,8 +1,9 @@
 
-from PIL import Image
 from dataclasses import dataclass
-from openvino_genai import Text2ImagePipeline
+
 from huggingface_hub import snapshot_download
+from openvino_genai import Text2ImagePipeline
+from PIL import Image
 
 
 @dataclass

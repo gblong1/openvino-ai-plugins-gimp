@@ -15,15 +15,13 @@
 """
 
 
-from .openvino_adapter import create_core, OpenvinoAdapter
-
+from .openvino_adapter import OpenvinoAdapter, create_core
 from .utils import Layout
-
 
 __all__ = [
     'create_core',
     'Layout',
     'OpenvinoAdapter',
 
-  
+
 ]

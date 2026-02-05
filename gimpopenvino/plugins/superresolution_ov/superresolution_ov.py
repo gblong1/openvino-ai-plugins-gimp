@@ -6,25 +6,26 @@
 """
 Perform superresolution on the current layer.
 """
-import gi
 import gettext
-import subprocess
 import json
 import os
+import subprocess
 import sys
 from enum import IntEnum
 
+import gi
+
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..","openvino_utils")])
-from plugin_utils import show_dialog, save_image
+from plugin_utils import save_image, show_dialog
 
 gi.require_version("Gimp", "3.0")
 gi.require_version("GimpUi", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gimp, GimpUi, GObject, GLib, Gio, Gtk
+from gi.repository import Gimp, GimpUi, Gio, GLib, GObject, Gtk
 
 _ = gettext.gettext
 
-from tools.tools_utils import base_model_dir, config_path_dir
+from tools.tools_utils import config_path_dir
 
 image_paths = {
     "logo": os.path.join(
@@ -103,9 +104,9 @@ class SRRunner:
         self.result = None
 
     def load_inference_results(self, weight_path):
-        with open(os.path.join(weight_path, "..", "gimp_openvino_run.json"), "r") as file:
+        with open(os.path.join(weight_path, "..", "gimp_openvino_run.json")) as file:
             return json.load(file)
-    
+
     def run(self, diaglog):
         procedure = self.procedure
         image = self.image
@@ -128,12 +129,12 @@ class SRRunner:
 
         try:
             if sys.platform == 'win32':
-                creationflags = subprocess.CREATE_NO_WINDOW 
+                creationflags = subprocess.CREATE_NO_WINDOW
             else:
-                creationflags = 0 # N/A on linux 
-  
+                creationflags = 0 # N/A on linux
+
             subprocess.call([python_path, plugin_path],
-                        creationflags=creationflags, 
+                        creationflags=creationflags,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
@@ -152,7 +153,7 @@ class SRRunner:
             except Exception as e:
                 Gimp.message(f"Error processing inference results: {e}")
                 return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, GLib.Error())
-    
+
             Gimp.displays_flush()
             remove_temporary_files(os.path.join(weight_path, ".."))
             self.result = procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, GLib.Error())
@@ -211,26 +212,26 @@ def remove_temporary_files(directory):
 
 # this is what brings up the UI
 def run(procedure, run_mode, image, layer, config, data):
-    scale = config.get_property("scale") 
-    device_name = config.get_property("device_name") 
-    model_name = config.get_property("model_name") 
-    
+    scale = config.get_property("scale")
+    device_name = config.get_property("device_name")
+    model_name = config.get_property("model_name")
+
     if run_mode == Gimp.RunMode.INTERACTIVE:
-        with open(os.path.join(config_path_dir, "gimp_openvino_config.json"), "r") as file:
+        with open(os.path.join(config_path_dir, "gimp_openvino_config.json")) as file:
             config_path_output = json.load(file)
-        
+
         plugin_version = config_path_output["plugin_version"]
         config_path_output["plugin_path"] = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), 
-            "..", 
-            "openvino_utils", 
-            "tools", 
+            os.path.dirname(os.path.realpath(__file__)),
+            "..",
+            "openvino_utils",
+            "tools",
             "superresolution_ov.py")
-        
+
         device_name_enum = DeviceEnum(config_path_output["supported_devices"])
 
         config = procedure.create_config()
-        
+
         GimpUi.init("superresolution-ov")
         use_header_bar = Gtk.Settings.get_default().get_property("gtk-dialogs-use-header")
         title_bar_label =  "Super Resolution : " +  plugin_version
@@ -307,7 +308,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 scale = config.get_property("scale")
                 device_name = config.get_property("device_name")
                 model_name = config.get_property("model_name")
-                
+
                 runner = SRRunner(procedure, image, layer, scale, device_name, model_name, progress_bar, config_path_output)
                 spinner.show()
                 spinner.start()
@@ -322,7 +323,7 @@ def run(procedure, run_mode, image, layer, config, data):
                 if run_inference_thread:
                     run_inference_thread.join()
                     result = runner.result
-                    
+
                     if result == Gimp.PDBStatusType.SUCCESS and config is not None:
                         config.end_run(Gimp.PDBStatusType.SUCCESS)
 
@@ -341,15 +342,15 @@ class Superresolution(Gimp.PlugIn):
     ## GimpPlugIn virtual methods ##
     def do_set_i18n(self, procname):
         return True, 'gimp30-python', None
-    
+
     def do_query_procedures(self):
         return ["superresolution-ov"]
 
     def do_create_procedure(self, name):
         procedure = None
         if name == "superresolution-ov":
-            procedure = Gimp.ImageProcedure.new(self, name, 
-                                                Gimp.PDBProcType.PLUGIN, 
+            procedure = Gimp.ImageProcedure.new(self, name,
+                                                Gimp.PDBProcType.PLUGIN,
                                                 run, None)
             procedure.set_image_types("*")
             procedure.set_documentation(
@@ -360,8 +361,8 @@ class Superresolution(Gimp.PlugIn):
             procedure.set_menu_label(_("Super Resolution"))
             procedure.set_attribution("Arisha Kumar", "OpenVINO-AI-Plugins", "2022")
             procedure.add_menu_path("<Image>/Layer/OpenVINO-AI-Plugins/")
-            procedure.add_int_argument("scale", _("_Scale"), 
-                                       "Scale", 1, 4, 2, 
+            procedure.add_int_argument("scale", _("_Scale"),
+                                       "Scale", 1, 4, 2,
                                        GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("device_name",_("Device Name"),
                                           "Device Name: 'CPU', 'GPU'",

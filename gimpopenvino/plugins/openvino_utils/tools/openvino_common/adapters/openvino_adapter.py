@@ -18,14 +18,22 @@ import logging as log
 from pathlib import Path
 
 try:
-    from openvino import AsyncInferQueue, Core, PartialShape, layout_helpers, get_version, Dimension
+    from openvino import (
+        AsyncInferQueue,
+        Core,
+        Dimension,
+        PartialShape,
+        get_version,
+        layout_helpers,
+    )
     openvino_absent = False
 except ImportError:
     openvino_absent = True
 
-from .model_adapter import ModelAdapter, Metadata
-from .utils import Layout
 from pipelines import parse_devices
+
+from .model_adapter import Metadata, ModelAdapter
+from .utils import Layout
 
 
 def create_core():
@@ -76,14 +84,14 @@ class OpenvinoAdapter(ModelAdapter):
             for device in devices:
                 try:
                     nstreams = self.compiled_model.get_property(device + '_THROUGHPUT_STREAMS')
-                    log.info('\tDevice: {}'.format(device))
-                    log.info('\t\tNumber of streams: {}'.format(nstreams))
+                    log.info(f'\tDevice: {device}')
+                    log.info(f'\t\tNumber of streams: {nstreams}')
                     if device == 'CPU':
                         nthreads = self.compiled_model.get_property('CPU_THREADS_NUM')
                         log.info('\t\tNumber of threads: {}'.format(nthreads if int(nthreads) else 'AUTO'))
                 except RuntimeError:
                     pass
-        log.info('\tNumber of model infer requests: {}'.format(len(self.async_queue)))
+        log.info(f'\tNumber of model infer requests: {len(self.async_queue)}')
 
     def get_input_layers(self):
         inputs = {}

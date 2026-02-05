@@ -6,18 +6,15 @@ SPDX - License - Identifier: Apache - 2.0
 #from .model import Model
 
 
+import numpy as np
 import openvino
 import openvino_genai
-import numpy as np
-
 from PIL import Image
-
-
 
 
 class StableDiffusionEngineInpaintingGenai:
     def __init__(self, model: str, device: str = "GPU"):
- 
+
         self.device = device
         self.pipe = openvino_genai.InpaintingPipeline(model, device)
 
@@ -29,9 +26,9 @@ class StableDiffusionEngineInpaintingGenai:
 
         # Convert to numpy array (H, W, C) → (1, C, H, W) for OpenVINO
         image_data = np.array(pic.getdata()).reshape(1, pic.size[1], pic.size[0], 3).astype(np.uint8)
-                
+
         return openvino.Tensor(image_data)
-    
+
 
 
     def __call__(
@@ -49,7 +46,7 @@ class StableDiffusionEngineInpaintingGenai:
     ):
         width = 768
         height = 432
-        
+
         image = self.read_image(image_path)
         mask_image = self.read_image(mask_path)
 
@@ -62,19 +59,19 @@ class StableDiffusionEngineInpaintingGenai:
             if callback:
                 callback(step, callback_userdata)
             return False
-           
+
 
         if (image.shape[1] == image.shape[2]):
             image_tensor = self.pipe.generate(prompt, image, mask_image,num_inference_steps=num_inference_steps,negative_prompt=negative_prompt,callback=callback_genai)
         else:
             image_tensor = self.pipe.generate(prompt, image, mask_image, width=width, height=height,num_inference_steps=num_inference_steps,negative_prompt=negative_prompt,callback=callback_genai)
-                   
+
 
         return Image.fromarray(image_tensor.data[0])
-    
 
-    
-    
-    
-    
+
+
+
+
+
 

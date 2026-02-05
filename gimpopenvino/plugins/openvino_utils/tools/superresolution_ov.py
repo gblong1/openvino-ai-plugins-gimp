@@ -2,34 +2,36 @@
 # Copyright(C) 2022-2023 Intel Corporation
 # SPDX - License - Identifier: Apache - 2.0
 
+import concurrent.futures
 import json
 import os
 import sys
-import concurrent.futures
 
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "openvino_common")])
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..","tools")])
 
 
-import cv2
-from superes_run_ov import run
-import torch
-from gimpopenvino.plugins.openvino_utils.tools.tools_utils import get_weight_path
 import traceback
+
+import cv2
 import numpy as np
+from superes_run_ov import run
+
+from gimpopenvino.plugins.openvino_utils.tools.tools_utils import get_weight_path
+
 
 def get_sr(img,s, model_name="sr_1033", weight_path=None,device="CPU"):
     if weight_path is None:
         weight_path = get_weight_path()
-    
+
     if "esrgan" in model_name:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            out_thread = executor.submit(run, img, 
-                                        os.path.join(weight_path, "superresolution-ov", "realesrgan-x4-fp16.xml"), 
-                                        device, 
+            out_thread = executor.submit(run, img,
+                                        os.path.join(weight_path, "superresolution-ov", "realesrgan-x4-fp16.xml"),
+                                        device,
                                         model_name
                                         )
-    
+
         out = out_thread.result()
 
         out = cv2.resize(out, (0, 0), fx=s / 4, fy=s / 4)
@@ -51,7 +53,7 @@ def get_sr(img,s, model_name="sr_1033", weight_path=None,device="CPU"):
 
 if __name__ == "__main__":
     weight_path = get_weight_path()
-    with open(os.path.join(weight_path, "..", "gimp_openvino_run.json"), "r") as file:
+    with open(os.path.join(weight_path, "..", "gimp_openvino_run.json")) as file:
         data_output = json.load(file)
 
     device = data_output["device_name"]
@@ -71,8 +73,8 @@ if __name__ == "__main__":
         for f_name in os.listdir(my_dir):
             if f_name.startswith("error_log"):
                 os.remove(os.path.join(my_dir, f_name))
-  
-    except Exception as error:
+
+    except Exception:
         with open(os.path.join(weight_path, "..", "gimp_openvino_run.json"), "w") as file:
             json.dump({"inference_status": "failed"}, file)
         with open(os.path.join(weight_path, "..", "error_log.txt"), "w") as file:

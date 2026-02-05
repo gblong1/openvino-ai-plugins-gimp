@@ -1,7 +1,8 @@
 import glob
 from os import path
-from paths import get_file_name, FastStableDiffusionPaths
 from pathlib import Path
+
+from paths import FastStableDiffusionPaths, get_file_name
 
 
 # A basic class to keep track of the currently loaded LoRAs and

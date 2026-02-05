@@ -6,7 +6,6 @@ SPDX - License - Identifier: Apache - 2.0
 
 import os
 import sys
-from typing import List, Optional
 
 cwd = os.getcwd()
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +22,7 @@ from fastsd.state import get_context, get_settings
 
 class StableDiffusionEngineFastSD:
     def __init__(
-        self, model: str, model_name: str, device: List = ["GPU", "GPU", "GPU"]
+        self, model: str, model_name: str, device: list = ["GPU", "GPU", "GPU"]
     ):
         self.device = device[0] if device else "CPU"
         print(get_device_name())
@@ -59,7 +58,7 @@ class StableDiffusionEngineFastSD:
         width=512,
         num_inference_steps=4,
         guidance_scale=1.0,
-        seed: Optional[str] = None,
+        seed: str | None = None,
     ):
         prev_width = self.config.lcm_diffusion_setting.image_width
         prev_height = self.config.lcm_diffusion_setting.image_height

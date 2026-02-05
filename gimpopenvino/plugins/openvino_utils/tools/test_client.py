@@ -2,9 +2,9 @@
 # Copyright(C) 2022-2023 Intel Corporation
 # SPDX - License - Identifier: Apache - 2.0
 
+import os
 import socket
 import sys
-import os
 
 sys.path.extend([os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")])
 import config

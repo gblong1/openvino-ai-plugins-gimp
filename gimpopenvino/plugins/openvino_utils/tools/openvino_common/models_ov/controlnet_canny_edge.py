@@ -3,53 +3,37 @@ Copyright(C) 2022-2023 Intel Corporation
 SPDX - License - Identifier: Apache - 2.0
 
 """
-from tokenize import untokenize
 
-import inspect
-from typing import List, Optional, Union, Dict
-import numpy as np
-# openvino
-
-# tokenizer
-from transformers import CLIPTokenizer
-import torch
-
-
-from diffusers import DiffusionPipeline
-from diffusers import UniPCMultistepScheduler,DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler
-import cv2
 import os
-import sys
+import time
 
+import cv2
+import numpy as np
 
 #For GIF
 import PIL
+import torch
+from diffusers import DiffusionPipeline, EulerDiscreteScheduler, LMSDiscreteScheduler
+from openvino import Core, Model
 from PIL import Image
-import glob
-import json
-import time
 
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
-
-from openvino import Model, Core
-from collections import namedtuple
-
-
-from typing import Union, List, Optional, Tuple
+# openvino
+# tokenizer
+from transformers import CLIPTokenizer
 
 
 def canny(image):
     low_threshold = 100
     high_threshold = 200
     image = np.array(image)
-    
+
     image = cv2.Canny(image, low_threshold, high_threshold)
     image = image[:, :, None]
     image = np.concatenate([image, image, image], axis=2)
     image = Image.fromarray(image)
-    
+
     return image
-        
+
 
 
 
@@ -101,11 +85,11 @@ def preprocess(image: PIL.Image.Image):
     return image, pad
 
 
-    
-    
+
+
 def randn_tensor(
-    shape: Union[Tuple, List],
-    dtype: Optional[np.dtype] = np.float32,
+    shape: tuple | list,
+    dtype: np.dtype | None = np.float32,
 ):
     """
     Helper function for generation random values tensor with given shape and data type
@@ -128,14 +112,14 @@ class ControlNetCannyEdge(DiffusionPipeline):
             tokenizer="openai/clip-vit-large-patch14",
             device=["CPU","CPU","CPU"],
             ):
-            
-        super().__init__()    
-            
-        self.set_progress_bar_config(disable=False)    
+
+        super().__init__()
+
+        self.set_progress_bar_config(disable=False)
 
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model,local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
@@ -143,16 +127,16 @@ class ControlNetCannyEdge(DiffusionPipeline):
 
 
         #self.scheduler =   UniPCMultistepScheduler.from_pretrained(os.path.join(model,"UniPCMultistepScheduler_config"))
-        
-    
-        
+
+
+
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')}) #adding caching to reduce init time
         print("Setting caching")
-        
-       
-    
-   
+
+
+
+
         controlnet = os.path.join(model, "controlnet-canny.xml")
         text_encoder = os.path.join(model, "text_encoder.xml")
         unet = os.path.join(model, "unet_controlnet.xml")
@@ -161,17 +145,17 @@ class ControlNetCannyEdge(DiffusionPipeline):
 
         ####################
         self.load_models(self.core, device, controlnet, text_encoder, unet, vae_decoder)
-        
+
 
         # encoder
         self.vae_encoder = None
         self._vae_d_output = self.vae_decoder.output(0)
         self._vae_e_output = self.vae_encoder.output(0) if self.vae_encoder is not None else None
-        
-        self.height = self.unet.input(0).shape[2] * 8
-        self.width = self.unet.input(0).shape[3] * 8    
 
- 
+        self.height = self.unet.input(0).shape[2] * 8
+        self.width = self.unet.input(0).shape[3] * 8
+
+
     def load_models(self, core: Core, device: str, controlnet:Model, text_encoder: Model, unet: Model, vae_decoder: Model):
         """
         Function for loading models on device using OpenVINO
@@ -203,10 +187,10 @@ class ControlNetCannyEdge(DiffusionPipeline):
         self.vae_decoder = core.compile_model(vae_decoder, device[2])
         self.vae_decoder_out = self.vae_decoder.output(0)
         print("vae decoder loaded in:", time.time() - start)
-        
-      
-        
-        
+
+
+
+
 
     def __call__(
             self,
@@ -227,29 +211,29 @@ class ControlNetCannyEdge(DiffusionPipeline):
         # 2. Encode input prompt
         text_embeddings = self._encode_prompt(prompt, negative_prompt=negative_prompt)
 
-        
+
         # 3. Preprocess image
         image = image.convert("RGB")
         control_image =canny(image)
-       
+
         orig_width, orig_height = control_image.size
-        
+
         control_image, pad = preprocess(control_image)
-        
-          
+
+
         height, width = control_image.shape[-2:]
         if do_classifier_free_guidance:
-            control_image = np.concatenate(([control_image] * 2))
-        
-        
+            control_image = np.concatenate([control_image] * 2)
+
+
         # 4. set timesteps
         # set timesteps
-        
+
         #print("self.scheduler",self.scheduler)
-        
+
         scheduler.set_timesteps(num_inference_steps)
         timesteps = scheduler.timesteps
-        
+
 
 
         # 6. Prepare latent variables
@@ -259,7 +243,7 @@ class ControlNetCannyEdge(DiffusionPipeline):
         #latent_timestep = timesteps[:1]
 
         # get the initial random noise unless the user supplied it
-        
+
         latents = self.prepare_latents(batch_size,num_channels_latents,height,width,scheduler) #,self.scheduler)
 
 
@@ -267,7 +251,7 @@ class ControlNetCannyEdge(DiffusionPipeline):
         # eta (η) is only used with the DDIMScheduler, it will be ignored for other schedulers.
         # eta corresponds to η in DDIM paper: https://arxiv.org/abs/2010.02502
         # and should be between [0, 1]
-    
+
         if create_gif:
             frames = []
 
@@ -290,13 +274,13 @@ class ControlNetCannyEdge(DiffusionPipeline):
                     [latents] * 2) if do_classifier_free_guidance else latents
                 latent_model_input = scheduler.scale_model_input(latent_model_input, t)
                 #print("latent_model_input", latent_model_input)
-                
-             
-                
+
+
+
                 result = self.controlnet([latent_model_input, t, text_embeddings, control_image])
                 #print("result", result)
                 down_and_mid_blok_samples = [sample * controlnet_conditioning_scale for _, sample in result.items()]
-                
+
                 # predict the noise residual
                 noise_pred = self.unet([latent_model_input, t, text_embeddings, *down_and_mid_blok_samples])[self.unet_out]
                 #print("noise_pred:", noise_pred)
@@ -306,17 +290,17 @@ class ControlNetCannyEdge(DiffusionPipeline):
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred[0], noise_pred[1]
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-                    
+
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = scheduler.step(torch.from_numpy(noise_pred), t, torch.from_numpy(latents)).prev_sample.numpy()
                 #print("latents", latents)
 
                 if create_gif:
                     frames.append(latents)
-                    
+
                 # update progress
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % scheduler.order == 0):
-                    progress_bar.update()                    
+                    progress_bar.update()
 
         if callback:
               callback(num_inference_steps, callback_userdata)
@@ -325,22 +309,22 @@ class ControlNetCannyEdge(DiffusionPipeline):
         # scale and decode the image latents with vae
 
         # 8. Post-processing
-        image = self.decode_latents(latents, pad)  
+        image = self.decode_latents(latents, pad)
         output_type = "pil"
         #print("output_type",output_type)
-     
-        
+
+
         # 9. Convert to PIL
         if output_type == "pil":
             image = self.numpy_to_pil(image)
             image = [img.resize((orig_width, orig_height), Image.Resampling.LANCZOS) for img in image]
-            
+
         else:
             image = [cv2.resize(img, (orig_width, orig_width))
                      for img in image]
-  
 
-             
+
+
 
         if create_gif:
             gif_folder=os.path.join(model,"../../../gif")
@@ -348,8 +332,8 @@ class ControlNetCannyEdge(DiffusionPipeline):
 
 
         return image[0]
-        
-    def _encode_prompt(self, prompt:Union[str, List[str]], num_images_per_prompt:int = 1, do_classifier_free_guidance:bool = True, negative_prompt:Union[str, List[str]] = None):
+
+    def _encode_prompt(self, prompt:str | list[str], num_images_per_prompt:int = 1, do_classifier_free_guidance:bool = True, negative_prompt:str | list[str] = None):
         """
         Encodes the prompt into text encoder hidden states.
 
@@ -386,7 +370,7 @@ class ControlNetCannyEdge(DiffusionPipeline):
 
         # get unconditional embeddings for classifier free guidance
         if do_classifier_free_guidance:
-            uncond_tokens: List[str]
+            uncond_tokens: list[str]
             max_length = text_input_ids.shape[-1]
             if negative_prompt is None:
                 uncond_tokens = [""] * batch_size
@@ -401,7 +385,7 @@ class ControlNetCannyEdge(DiffusionPipeline):
                 truncation=True,
                 return_tensors="np",
             )
-            
+
             uncond_embeddings = self.text_encoder(uncond_input.input_ids)[self.text_encoder_out]
 
             # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
@@ -414,9 +398,9 @@ class ControlNetCannyEdge(DiffusionPipeline):
             # to avoid doing two forward passes
             text_embeddings = np.concatenate([uncond_embeddings, text_embeddings])
 
-        return text_embeddings        
-        
-    def decode_latents(self, latents:np.array, pad:Tuple[int]):
+        return text_embeddings
+
+    def decode_latents(self, latents:np.array, pad:tuple[int]):
         """
         Decode predicted image from latent space using VAE Decoder and unpad image result
         
@@ -437,7 +421,7 @@ class ControlNetCannyEdge(DiffusionPipeline):
         image = np.clip(image / 2 + 0.5, 0, 1)
         image = np.transpose(image, (0, 2, 3, 1))
         #print("Inside decode", image.shape)
-        return image    
+        return image
 
     def prepare_latents(self,batch_size, num_channels_latents,height, width,scheduler): #, scheduler):
         """
@@ -452,54 +436,54 @@ class ControlNetCannyEdge(DiffusionPipeline):
            latents (np.ndarray): scaled initial noise for diffusion
         """
         shape = (batch_size, num_channels_latents, height // 8, width // 8)
-        
+
         latents = randn_tensor(shape, np.float32)
-       
+
         # scale the initial noise by the standard deviation required by the scheduler
         if isinstance(scheduler, LMSDiscreteScheduler):
-            
+
             latents = latents * scheduler.sigmas[0].numpy()
         elif isinstance(scheduler, EulerDiscreteScheduler):
-            
+
             latents = latents * scheduler.sigmas.max().numpy()
         else:
             latents = latents * scheduler.init_noise_sigma
 
         #latents = latents * self.scheduler.init_noise_sigma.numpy()
         return latents
-        
+
 
 
 
 if __name__ == "__main__":
     weight_path = "C:\\Users\\Local_Admin\\openvino-ai-plugins-gimp\\weights"
-    
+
     model_path = os.path.join(weight_path, "stable-diffusion-ov/controlnet-canny")  #os.path.join(weight_path, "stable-diffusion-ov/controlnet-openpose")  -- "D:\\git\\openvino_notebooks\\notebooks\\235-controlnet-stable-diffusion"
     device_name = ["GPU.0", "GPU.0" , "GPU.0"]
-    
+
     prompt = "Astronaut dancing"
     negative_prompt = "monochrome, lowres, bad anatomy, worst quality, low quality"
     seed = 799
     num_infer_steps = 20
     guidance_scale = 7.5
     init_image = "C:\\Users\\Local_Admin\\Pictures\\iStock-510778900.jpg"
-    
-    
-    
-    if seed is not None:   
+
+
+
+    if seed is not None:
         np.random.seed(int(seed))
     else:
-        ran_seed = random.randrange(4294967294) #4294967294 
+        ran_seed = random.randrange(4294967294) #4294967294
         np.random.seed(int(ran_seed))
-       
-    
+
+
     engine = ControlNetCannyEdge(
         model = model_path,
         device = device_name
     )
-    
 
-    
+
+
     output = engine(
     prompt = prompt,
     negative_prompt = negative_prompt,
@@ -512,10 +496,10 @@ if __name__ == "__main__":
     model = model_path,
     callback = None,
     callback_userdata = None)
-    
-    print("output show")
-    
-    output.save(os.path.join(weight_path, "..", "canny.png"))
-    
 
-    
+    print("output show")
+
+    output.save(os.path.join(weight_path, "..", "canny.png"))
+
+
+

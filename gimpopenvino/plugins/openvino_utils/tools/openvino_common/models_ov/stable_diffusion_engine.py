@@ -3,41 +3,39 @@ Copyright(C) 2022-2023 Intel Corporation
 SPDX - License - Identifier: Apache - 2.0
 
 """
+# for multithreading
+import concurrent.futures
+import glob
 import inspect
-from typing import Union, Optional, Any, List, Dict
-import numpy as np
-# openvino
-from openvino import Core
-# tokenizer
-from transformers import CLIPTokenizer
-import torch
+import json
+import os
 import random
-
-from diffusers import DiffusionPipeline
-from diffusers.schedulers import (DDIMScheduler,
-                                  LMSDiscreteScheduler,
-                                  PNDMScheduler,
-                                  EulerDiscreteScheduler,
-                                  EulerAncestralDiscreteScheduler)
-
-
-from diffusers.image_processor import VaeImageProcessor
-from diffusers.utils.torch_utils import randn_tensor
-from diffusers.utils import PIL_INTERPOLATION
+import time
+from typing import Any
 
 import cv2
-import os
-import sys
-
-# for multithreading 
-import concurrent.futures
+import numpy as np
 
 #For GIF
 import PIL
+import torch
+from diffusers import DiffusionPipeline
+from diffusers.image_processor import VaeImageProcessor
+from diffusers.schedulers import (
+    EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    LMSDiscreteScheduler,
+)
+from diffusers.utils import PIL_INTERPOLATION
+from diffusers.utils.torch_utils import randn_tensor
+
+# openvino
+from openvino import Core
 from PIL import Image
-import glob
-import json
-import time
+
+# tokenizer
+from transformers import CLIPTokenizer
+
 
 def scale_fit_to_window(dst_width:int, dst_height:int, image_width:int, image_height:int):
     """
@@ -95,7 +93,7 @@ def try_enable_npu_turbo(device, core):
         if all(arch not in architecture for arch in ["3700","3720"]):
             try:
                 core.set_property(properties={'NPU_TURBO': 'YES'},device_name='NPU')
-            except Exception as e:
+            except Exception:
                 print(f"Failed loading NPU_TURBO for device {device}. Skipping... ")
             else:
                 print_npu_turbo_art()
@@ -106,23 +104,23 @@ def result(var):
     return next(iter(var.values()))
 
 class StableDiffusionEngineAdvanced(DiffusionPipeline):
-    def __init__(self, model="runwayml/stable-diffusion-v1-5", 
-                  tokenizer="openai/clip-vit-large-patch14", 
+    def __init__(self, model="runwayml/stable-diffusion-v1-5",
+                  tokenizer="openai/clip-vit-large-patch14",
                   device=["CPU", "CPU", "CPU", "CPU"]):
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model, local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
 
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')})
-        if "NPU" in device: 
+        if "NPU" in device:
             try_enable_npu_turbo(device, self.core)
-            
+
         print("Loading models ... int8 ")
-        
+
 
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -155,16 +153,16 @@ class StableDiffusionEngineAdvanced(DiffusionPipeline):
         self.infer_request = self.unet.create_infer_request()
         self.infer_request_time_proj = self.unet_time_proj.create_infer_request()
         self.time_proj_constants = np.load(os.path.join(model, "time_proj_constants.npy"))
-        
+
     def load_model(self, model, model_name, device):
         if "NPU" in device:
             with open(os.path.join(model, f"{model_name}.blob"), "rb") as f:
                 return self.core.import_model(f.read(), device)
-        elif "GPU" in device: 
+        elif "GPU" in device:
             return self.core.compile_model(os.path.join(model, f"{model_name}.xml"), device, {'GPU_QUEUE_THROTTLE': 'LOW'})
         else:
             return self.core.compile_model(os.path.join(model, f"{model_name}.xml"), device)
-        
+
     def set_dimensions(self):
         latent_shape = self.unet.input("latent_model_input").shape
         if latent_shape[1] == 4:
@@ -296,7 +294,7 @@ class StableDiffusionEngineAdvanced(DiffusionPipeline):
             self.infer_request.start_async(input_tens_dict)
             self.infer_request_neg.wait()
             self.infer_request.wait()
-            
+
             noise_pred_neg = self.infer_request_neg.get_output_tensor(0)
             noise_pred_pos = self.infer_request.get_output_tensor(0)
 
@@ -359,7 +357,7 @@ class StableDiffusionEngineAdvanced(DiffusionPipeline):
                 Image encoded in latent space
         """
         latents_shape = (1, 4, self.height // 8, self.width // 8)
-   
+
         noise = np.random.randn(*latents_shape).astype(np.float32)
         if image is None:
             ##print("Image is NONE")
@@ -375,19 +373,19 @@ class StableDiffusionEngineAdvanced(DiffusionPipeline):
             else:
                 return noise, {}
         input_image, meta = preprocess(image,self.height,self.width)
-       
+
         moments = self.vae_encoder(input_image)[self._vae_e_output]
-      
+
         mean, logvar = np.split(moments, 2, axis=1)
-  
+
         std = np.exp(logvar * 0.5)
         latents = (mean + std * np.random.randn(*mean.shape)) * 0.18215
-       
-         
+
+
         latents = scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
         return latents, meta
 
-    def postprocess_image(self, image:np.ndarray, meta:Dict):
+    def postprocess_image(self, image:np.ndarray, meta:dict):
         """
         Postprocessing for decoded image. Takes generated image decoded by VAE decoder, unpad it to initial image size (if required), 
         normalize and convert to [0, 255] pixels range. Optionally, convertes it from np.ndarray to PIL.Image format
@@ -459,7 +457,7 @@ class StableDiffusionEngine(DiffusionPipeline):
             model="bes-dev/stable-diffusion-v1-4-openvino",
             tokenizer="openai/clip-vit-large-patch14",
             device=["CPU","CPU","CPU","CPU"], model_name="fp16"):
-        
+
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')})
 
@@ -470,17 +468,17 @@ class StableDiffusionEngine(DiffusionPipeline):
             batch_size = 1
 
         self.batch_size = batch_size
-        if "NPU" in device: 
+        if "NPU" in device:
             try_enable_npu_turbo(device, self.core)
 
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model, local_files_only=True)
-        except Exception as e:
+        except Exception:
             print("Local tokenizer not found. Attempting to download...")
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
-    
-    
+
+
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             text_future = executor.submit(self.load_model, model, "text_encoder", device[0])
@@ -530,7 +528,7 @@ class StableDiffusionEngine(DiffusionPipeline):
                 self.infer_request = None
                 self.infer_request_neg = None
                 self._unet_neg_output = None
-         
+
         self.set_dimensions()
 
     def load_model(self, model, model_name, device):
@@ -541,8 +539,8 @@ class StableDiffusionEngine(DiffusionPipeline):
             return self.core.compile_model(os.path.join(model, f"{model_name}.xml"), device, {'INFERENCE_PRECISION_HINT': 'f32'})
         else:
             return self.core.compile_model(os.path.join(model, f"{model_name}.xml"), device)
-        
-        
+
+
     def set_dimensions(self):
         latent_shape = self.unet.input(self.unet_input_tensor_name).shape
         if latent_shape[1] == 4:
@@ -576,7 +574,7 @@ class StableDiffusionEngine(DiffusionPipeline):
             return_tensors="np",
         )
         text_embeddings = self.text_encoder(text_input.input_ids)[self._text_encoder_output]
-        
+
 
         # do classifier free guidance
         do_classifier_free_guidance = guidance_scale > 1.0
@@ -630,11 +628,11 @@ class StableDiffusionEngine(DiffusionPipeline):
             if self.batch_size == 1:
                 # expand the latents if we are doing classifier free guidance
                 noise_pred = []
-                latent_model_input = latents 
-                   
+                latent_model_input = latents
+
                 #Scales the denoising model input by `(sigma**2 + 1) ** 0.5` to match the Euler algorithm.
                 latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-                latent_model_input_pos = latent_model_input 
+                latent_model_input_pos = latent_model_input
                 latent_model_input_neg = latent_model_input
 
                 if self.unet.input(self.unet_input_tensor_name).shape[1] != 4:
@@ -643,37 +641,37 @@ class StableDiffusionEngine(DiffusionPipeline):
                     except AttributeError:
                         # Fallback to NumPy transpose when PyTorch tensor not available
                         latent_model_input_pos = latent_model_input_pos.transpose(0,2,3,1)
-                
+
                 if self.unet_neg.input(self.unet_input_tensor_name).shape[1] != 4:
                     try:
                         latent_model_input_neg = latent_model_input_neg.permute(0,2,3,1)
                     except AttributeError:
                         # Fallback to NumPy transpose when PyTorch tensor not available
                         latent_model_input_neg = latent_model_input_neg.transpose(0,2,3,1)
-                
-                if "sample" in self.unet_input_tensor_name:                                        
+
+                if "sample" in self.unet_input_tensor_name:
                     input_tens_neg_dict = {"sample" : latent_model_input_neg, "encoder_hidden_states": np.expand_dims(text_embeddings[0], axis=0), "timestep": np.expand_dims(np.float32(t), axis=0)}
                     input_tens_pos_dict = {"sample" : latent_model_input_pos, "encoder_hidden_states": np.expand_dims(text_embeddings[1], axis=0), "timestep": np.expand_dims(np.float32(t), axis=0)}
                 else:
                     input_tens_neg_dict = {"latent_model_input" : latent_model_input_neg, "encoder_hidden_states": np.expand_dims(text_embeddings[0], axis=0), "t": np.expand_dims(np.float32(t), axis=0)}
                     input_tens_pos_dict = {"latent_model_input" : latent_model_input_pos, "encoder_hidden_states": np.expand_dims(text_embeddings[1], axis=0), "t": np.expand_dims(np.float32(t), axis=0)}
-                                                     
+
                 self.infer_request_neg.start_async(input_tens_neg_dict)
-                self.infer_request.start_async(input_tens_pos_dict)    
-         
+                self.infer_request.start_async(input_tens_pos_dict)
+
                 self.infer_request_neg.wait()
                 self.infer_request.wait()
 
                 noise_pred_neg = self.infer_request_neg.get_output_tensor(0)
                 noise_pred_pos = self.infer_request.get_output_tensor(0)
-                               
+
                 noise_pred.append(noise_pred_neg.data.astype(np.float32))
                 noise_pred.append(noise_pred_pos.data.astype(np.float32))
             else:
                 latent_model_input = np.concatenate([latents] * 2) if do_classifier_free_guidance else latents
                 latent_model_input = scheduler.scale_model_input(latent_model_input, t)
                 noise_pred = self.unet([latent_model_input, np.array(t, dtype=np.float32), text_embeddings])[self._unet_output]
-                
+
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred[0], noise_pred[1]
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
@@ -741,9 +739,9 @@ class StableDiffusionEngine(DiffusionPipeline):
 
         latents = scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
         return latents, meta
-        
-  
-    def postprocess_image(self, image: np.ndarray, meta: Dict):
+
+
+    def postprocess_image(self, image: np.ndarray, meta: dict):
         """
         Postprocessing for decoded image. Takes generated image decoded by VAE decoder, unpad it to initila image size (if required),
         normalize and convert to [0, 255] pixels range. Optionally, convertes it from np.ndarray to PIL.Image format
@@ -817,21 +815,21 @@ class LatentConsistencyEngine(DiffusionPipeline):
         super().__init__()
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model, local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
 
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')})  # adding caching to reduce init time
-        if "NPU" in device: 
+        if "NPU" in device:
             try_enable_npu_turbo(device, self.core)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             text_future = executor.submit(self.load_model, model, "text_encoder", device[0])
-            unet_future = executor.submit(self.load_model, model, "unet", device[1])    
+            unet_future = executor.submit(self.load_model, model, "unet", device[1])
             vae_de_future = executor.submit(self.load_model, model, "vae_decoder", device[2])
-                
+
         print("Text Device:", device[0])
         self.text_encoder = text_future.result()
         self._text_encoder_output = self.text_encoder.output(0)
@@ -969,21 +967,21 @@ class LatentConsistencyEngine(DiffusionPipeline):
     @torch.no_grad()
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
-        height: Optional[int] = 512,
-        width: Optional[int] = 512,
+        prompt: str | list[str] = None,
+        height: int | None = 512,
+        width: int | None = 512,
         guidance_scale: float = 7.5,
         scheduler = None,
-        num_images_per_prompt: Optional[int] = 1,
-        latents: Optional[torch.FloatTensor] = None,
+        num_images_per_prompt: int | None = 1,
+        latents: torch.FloatTensor | None = None,
         num_inference_steps: int = 4,
         lcm_origin_steps: int = 50,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        output_type: Optional[str] = "pil",
+        prompt_embeds: torch.FloatTensor | None = None,
+        output_type: str | None = "pil",
         return_dict: bool = True,
-        model: Optional[Dict[str, any]] = None,
-        seed: Optional[int] = 1234567,
-        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+        model: dict[str, any] | None = None,
+        seed: int | None = 1234567,
+        cross_attention_kwargs: dict[str, Any] | None = None,
         callback = None,
         callback_userdata = None
     ):
@@ -1087,49 +1085,49 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
             device=["CPU","CPU","CPU"]
             ):
         #self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
-        try: 
+        try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model,local_files_only=True)
         except:
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
-                
+
         #self.scheduler = scheduler
         # models
-     
+
         self.core = Core()
         self.core.set_property({'CACHE_DIR': os.path.join(model, 'cache')}) #adding caching to reduce init time
         # text features
 
         print("Text Device:",device[0])
         self.text_encoder = self.core.compile_model(os.path.join(model, "text_encoder.xml"), device[0])
-        
+
         self._text_encoder_output = self.text_encoder.output(0)
-       
+
         # diffusion
         print("unet_w Device:",device[1])
-        self.unet_w = self.core.compile_model(os.path.join(model, "unet_reference_write.xml"), device[1]) 
+        self.unet_w = self.core.compile_model(os.path.join(model, "unet_reference_write.xml"), device[1])
         self._unet_w_output = self.unet_w.output(0)
         self.latent_shape = tuple(self.unet_w.inputs[0].shape)[1:]
-        
+
         print("unet_r Device:",device[1])
-        self.unet_r = self.core.compile_model(os.path.join(model, "unet_reference_read.xml"), device[1]) 
+        self.unet_r = self.core.compile_model(os.path.join(model, "unet_reference_read.xml"), device[1])
         self._unet_r_output = self.unet_r.output(0)
         # decoder
         print("Vae Device:",device[2])
-        
+
         self.vae_decoder = self.core.compile_model(os.path.join(model, "vae_decoder.xml"), device[2])
-            
+
         # encoder
-            
-        self.vae_encoder = self.core.compile_model(os.path.join(model, "vae_encoder.xml"), device[2]) 
-    
+
+        self.vae_encoder = self.core.compile_model(os.path.join(model, "vae_encoder.xml"), device[2])
+
         self.init_image_shape = tuple(self.vae_encoder.inputs[0].shape)[2:]
 
         self._vae_d_output = self.vae_decoder.output(0)
-        self._vae_e_output = self.vae_encoder.output(0) if self.vae_encoder is not None else None  
+        self._vae_e_output = self.vae_encoder.output(0) if self.vae_encoder is not None else None
 
         self.height = self.unet_w.input(0).shape[2] * 8
-        self.width = self.unet_w.input(0).shape[3] * 8      
+        self.width = self.unet_w.input(0).shape[3] * 8
 
 
 
@@ -1157,23 +1155,23 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
             return_tensors="np",
         )
         text_embeddings = self.text_encoder(text_input.input_ids)[self._text_encoder_output]
-    
+
 
         # do classifier free guidance
         do_classifier_free_guidance = guidance_scale > 1.0
         if do_classifier_free_guidance:
-        
+
             if negative_prompt is None:
                 uncond_tokens = [""]
             elif isinstance(negative_prompt, str):
                 uncond_tokens = [negative_prompt]
             else:
                 uncond_tokens = negative_prompt
-                
+
             tokens_uncond = self.tokenizer(
                 uncond_tokens,
                 padding="max_length",
-                max_length=self.tokenizer.model_max_length, #truncation=True,  
+                max_length=self.tokenizer.model_max_length, #truncation=True,
                 return_tensors="np"
             )
             uncond_embeddings = self.text_encoder(tokens_uncond.input_ids)[self._text_encoder_output]
@@ -1182,7 +1180,7 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         # set timesteps
         accepts_offset = "offset" in set(inspect.signature(scheduler.set_timesteps).parameters.keys())
         extra_set_kwargs = {}
-        
+
         if accepts_offset:
             extra_set_kwargs["offset"] = 1
 
@@ -1210,7 +1208,7 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         if accepts_eta:
             extra_step_kwargs["eta"] = eta
         if create_gif:
-            frames = []        
+            frames = []
 
         for i, t in enumerate(self.progress_bar(timesteps)):
             if callback:
@@ -1219,18 +1217,18 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
             # expand the latents if we are doing classifier free guidance
             latent_model_input = np.concatenate([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = scheduler.scale_model_input(latent_model_input, t)
-            
+
             # ref only part
             noise = randn_tensor(
                 ref_image_latents.shape
             )
-               
+
             ref_xt = scheduler.add_noise(
                 torch.from_numpy(ref_image_latents),
                 noise,
                 t.reshape(
                     1,
-                ),    
+                ),
             ).numpy()
             ref_xt = np.concatenate([ref_xt] * 2) if do_classifier_free_guidance else ref_xt
             ref_xt = scheduler.scale_model_input(ref_xt, t)
@@ -1257,14 +1255,14 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
             up_3_attn0   = result_w_dict["/unet/up_blocks.3/attentions.0/transformer_blocks.0/norm1/LayerNormalization_output_0"]
             up_3_attn1   = result_w_dict["/unet/up_blocks.3/attentions.1/transformer_blocks.0/norm1/LayerNormalization_output_0"]
             up_3_attn2   = result_w_dict["/unet/up_blocks.3/attentions.2/transformer_blocks.0/norm1/LayerNormalization_output_0"]
-                
+
             # MODE = "read"
             noise_pred = self.unet_r([
                 latent_model_input, t, text_embeddings, down_0_attn0, down_0_attn1, down_1_attn0,
-                down_1_attn1, down_2_attn0, down_2_attn1, mid_attn0, up_1_attn0, up_1_attn1, up_1_attn2, 
+                down_1_attn1, down_2_attn0, down_2_attn1, mid_attn0, up_1_attn0, up_1_attn1, up_1_attn2,
                 up_2_attn0, up_2_attn1, up_2_attn2, up_3_attn0, up_3_attn1, up_3_attn2
             ])[0]
-                
+
             # perform guidance
             if do_classifier_free_guidance:
                 noise_pred_uncond, noise_pred_text = noise_pred[0], noise_pred[1]
@@ -1272,17 +1270,17 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
 
             # compute the previous noisy sample x_t -> x_t-1
             latents = scheduler.step(torch.from_numpy(noise_pred), t, torch.from_numpy(latents), **extra_step_kwargs)["prev_sample"].numpy()
-     
+
             if create_gif:
                 frames.append(latents)
-              
+
         if callback:
             callback(num_inference_steps, callback_userdata)
 
         # scale and decode the image latents with vae
-        
+
         image = self.vae_decoder(latents)[self._vae_d_output]
-      
+
         image = self.postprocess_image(image, meta)
 
         if create_gif:
@@ -1296,13 +1294,13 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
                 cv2.imwrite(output, image)
             with open(os.path.join(gif_folder, "prompt.json"), "w") as file:
                 json.dump({"prompt": prompt}, file)
-            frames_image =  [Image.open(image) for image in glob.glob(f"{gif_folder}/*.png")]  
+            frames_image =  [Image.open(image) for image in glob.glob(f"{gif_folder}/*.png")]
             frame_one = frames_image[0]
             gif_file=os.path.join(gif_folder,"stable_diffusion.gif")
             frame_one.save(gif_file, format="GIF", append_images=frames_image, save_all=True, duration=100, loop=0)
 
         return image
-    
+
     def ov_prepare_ref_latents(self, refimage, vae_scaling_factor=0.18215):
         #refimage = refimage.to(device=device, dtype=dtype)
 
@@ -1313,11 +1311,11 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         ref_image_latents = (mean + std * np.random.randn(*mean.shape))
         ref_image_latents = vae_scaling_factor * ref_image_latents
         #ref_image_latents = scheduler.add_noise(torch.from_numpy(ref_image_latents), torch.from_numpy(noise), latent_timestep).numpy()
-        
+
         # aligning device to prevent device errors when concating it with the latent model input
         #ref_image_latents = ref_image_latents.to(device=device, dtype=dtype)
         return ref_image_latents
-    
+
     def prepare_latents(self, image:PIL.Image.Image = None, latent_timestep:torch.Tensor = None, scheduler = LMSDiscreteScheduler):
         """
         Function for getting initial latents for starting generation
@@ -1332,35 +1330,35 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
                 Image encoded in latent space
         """
         latents_shape = (1, 4, self.height // 8, self.width // 8)
-   
+
         noise = np.random.randn(*latents_shape).astype(np.float32)
         if image is None:
             #print("Image is NONE")
             # if we use LMSDiscreteScheduler, let's make sure latents are mulitplied by sigmas
             if isinstance(scheduler, LMSDiscreteScheduler):
-             
+
                 noise = noise * scheduler.sigmas[0].numpy()
                 return noise, {}
             elif isinstance(scheduler, EulerDiscreteScheduler):
-              
+
                 noise = noise * scheduler.sigmas.max().numpy()
                 return noise, {}
             else:
                 return noise, {}
         input_image, meta = preprocess(image,self.height,self.width)
-       
+
         moments = self.vae_encoder(input_image)[self._vae_e_output]
-      
+
         mean, logvar = np.split(moments, 2, axis=1)
-  
+
         std = np.exp(logvar * 0.5)
         latents = (mean + std * np.random.randn(*mean.shape)) * 0.18215
-       
-         
+
+
         latents = scheduler.add_noise(torch.from_numpy(latents), torch.from_numpy(noise), latent_timestep).numpy()
         return latents, meta
 
-    def postprocess_image(self, image:np.ndarray, meta:Dict):
+    def postprocess_image(self, image:np.ndarray, meta:dict):
         """
         Postprocessing for decoded image. Takes generated image decoded by VAE decoder, unpad it to initila image size (if required), 
         normalize and convert to [0, 255] pixels range. Optionally, convertes it from np.ndarray to PIL.Image format
@@ -1394,17 +1392,17 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         image = np.clip(image / 2 + 0.5, 0, 1)
         image = (image[0].transpose(1, 2, 0)[:, :, ::-1] * 255).astype(np.uint8)
 
-           
+
 
         if "src_height" in meta:
             orig_height, orig_width = meta["src_height"], meta["src_width"]
             image = cv2.resize(image, (orig_width, orig_height))
-                        
+
         return image
 
-        
+
                       #image = (image / 2 + 0.5).clip(0, 1)
-        #image = (image[0].transpose(1, 2, 0)[:, :, ::-1] * 255).astype(np.uint8)   
+        #image = (image[0].transpose(1, 2, 0)[:, :, ::-1] * 255).astype(np.uint8)
 
 
     def get_timesteps(self, num_inference_steps:int, strength:float, scheduler):
@@ -1420,13 +1418,13 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
                Values that approach 1.0 allow for lots of variations but will also produce images that are not semantically consistent with the input.
         """
         # get the original timestep using init_timestep
-   
+
         init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
-    
+
         t_start = max(num_inference_steps - init_timestep, 0)
         timesteps = scheduler.timesteps[t_start:]
 
-        return timesteps, num_inference_steps - t_start 
+        return timesteps, num_inference_steps - t_start
     def prepare_image(
         self,
         image,
@@ -1465,7 +1463,7 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
 
 def print_npu_turbo_art():
     random_number = random.randint(1, 3)
-    
+
     if random_number == 1:
         print(r"                                                                                                                      ")
         print(r"      ___           ___         ___                                ___           ___                         ___      ")

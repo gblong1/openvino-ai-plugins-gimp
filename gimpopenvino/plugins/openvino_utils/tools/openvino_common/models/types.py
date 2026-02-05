@@ -83,7 +83,7 @@ class StringValue(BaseValue):
         self.choices = choices
         for choice in self.choices:
             if not isinstance(choice, str):
-                raise ValueError("Incorrect option in choice list - {}.". format(choice))
+                raise ValueError(f"Incorrect option in choice list - {choice}.")
 
     def validate(self, value):
         errors = super().validate(value)

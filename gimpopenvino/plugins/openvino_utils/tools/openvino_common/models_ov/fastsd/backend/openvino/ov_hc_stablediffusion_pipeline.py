@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from diffusers import EulerDiscreteScheduler, LCMScheduler
-from huggingface_hub import snapshot_download
-from PIL import Image
 from backend.openvino.latent_consistency_engine_advanced import (
     LatentConsistencyEngineAdvanced,
 )
+from diffusers import LCMScheduler
+from huggingface_hub import snapshot_download
+from PIL import Image
 
 
 class OvHcLatentConsistency:

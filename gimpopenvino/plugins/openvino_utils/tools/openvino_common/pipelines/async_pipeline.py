@@ -15,7 +15,6 @@
 """
 
 from time import perf_counter
-from typing import Dict, Set
 
 from performance_metrics import PerformanceMetrics
 
@@ -35,7 +34,7 @@ def parse_devices(device_string):
     return (device_string,)
 
 
-def parse_value_per_device(devices: Set[str], values_string: str)-> Dict[str, int]:
+def parse_value_per_device(devices: set[str], values_string: str)-> dict[str, int]:
     """Format: <device1>:<value1>,<device2>:<value2> or just <value>"""
     values_string_upper = values_string.upper()
     result = {}
@@ -53,7 +52,7 @@ def parse_value_per_device(devices: Set[str], values_string: str)-> Dict[str, in
     return result
 
 
-def get_user_config(flags_d: str, flags_nstreams: str, flags_nthreads: int)-> Dict[str, str]:
+def get_user_config(flags_d: str, flags_nstreams: str, flags_nthreads: int)-> dict[str, str]:
     from openvino import Core, properties
     config = {}
 

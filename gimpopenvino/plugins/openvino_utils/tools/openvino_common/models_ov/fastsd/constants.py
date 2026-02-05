@@ -1,4 +1,4 @@
-from os import environ, cpu_count
+from os import cpu_count, environ
 
 cpu_cores = cpu_count()
 cpus = cpu_cores // 2 if cpu_cores else 0

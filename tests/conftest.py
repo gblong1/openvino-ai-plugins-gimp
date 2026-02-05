@@ -8,14 +8,13 @@ This module provides common fixtures for:
 - Mock GIMP interfaces
 """
 
-import os
 import socket
 import threading
 import time
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-import pytest
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ============================================================================
 # Path Fixtures
@@ -68,7 +67,7 @@ def socket_server_factory():
     """
     def _create_server(port, response=b"OK", host="127.0.0.1"):
         stop_event = threading.Event()
-        
+
         def server_thread():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -83,24 +82,24 @@ def socket_server_factory():
                                 data = conn.recv(1024)
                                 if data:
                                     conn.sendall(response)
-                        except socket.timeout:
+                        except TimeoutError:
                             continue
                         except Exception:
                             break
                 except Exception as e:
                     print(f"Server error on port {port}: {e}")
-        
+
         thread = threading.Thread(target=server_thread, daemon=True)
         thread.start()
         time.sleep(0.1)  # Give server time to start
-        
+
         class ServerControl:
             def shutdown(self):
                 stop_event.set()
                 thread.join(timeout=2.0)
-        
+
         return ServerControl()
-    
+
     return _create_server
 
 
@@ -142,18 +141,18 @@ def mock_model_path(tmp_path):
     """Create a mock model directory with config."""
     model_dir = tmp_path / "stable-diffusion-ov" / "stable-diffusion-1.5"
     model_dir.mkdir(parents=True)
-    
+
     config = {
         "power modes supported": "yes",
         "best performance": ["CPU", "CPU", "CPU", "CPU"],
         "balanced": ["CPU", "CPU", "CPU", "CPU"]
     }
-    
+
     config_file = model_dir / "config.json"
     import json
     with open(config_file, 'w') as f:
         json.dump(config, f)
-    
+
     return model_dir
 
 
@@ -165,19 +164,19 @@ def mock_model_path(tmp_path):
 def mock_gimp():
     """Mock GIMP module and basic structures."""
     gimp_mock = MagicMock()
-    
+
     # Mock Gimp.PlugIn
     gimp_mock.PlugIn = MagicMock
-    
+
     # Mock Gimp.ImageProcedure
     procedure_mock = MagicMock()
     gimp_mock.ImageProcedure.new.return_value = procedure_mock
-    
+
     # Mock common GIMP enums
     gimp_mock.RunMode.INTERACTIVE = 1
     gimp_mock.RunMode.NONINTERACTIVE = 0
     gimp_mock.PDBProcType.PLUGIN = 1
-    
+
     return gimp_mock
 
 

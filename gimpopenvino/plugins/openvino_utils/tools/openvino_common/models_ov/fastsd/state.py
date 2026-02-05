@@ -1,16 +1,16 @@
-from app_settings import AppSettings
 from typing import Optional
 
+from app_settings import AppSettings
+from backend.safety_checker import SafetyChecker
 from context import Context
 from models.interface_types import InterfaceType
-from backend.safety_checker import SafetyChecker
 
 
 class _AppState:
     _instance: Optional["_AppState"] = None
-    settings: Optional[AppSettings] = None
-    context: Optional[Context] = None
-    safety_checker: Optional[SafetyChecker] = None
+    settings: AppSettings | None = None
+    context: Context | None = None
+    safety_checker: SafetyChecker | None = None
 
 
 def get_state() -> _AppState:

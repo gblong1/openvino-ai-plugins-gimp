@@ -3,42 +3,36 @@ Adapted from https://github.com/rupeshs/fastsdcpu/blob/main/src/backend/openvino
 
 """
 
-import inspect
-from typing import Union, Optional, Any, List, Dict
-import numpy as np
-
-# openvino
-from openvino import Core
-
-# tokenizer
-from transformers import CLIPTokenizer
-import torch
-import random
-
-from diffusers import DiffusionPipeline
-from diffusers.schedulers import (
-    LMSDiscreteScheduler,
-    EulerDiscreteScheduler,
-)
-
-
-from diffusers.image_processor import VaeImageProcessor
-from diffusers.utils.torch_utils import randn_tensor
-from diffusers.utils import PIL_INTERPOLATION
-
-import cv2
-import os
-
-
 # for multithreading
 import concurrent.futures
+import glob
+import inspect
+import json
+import os
+import time
+from typing import Any
+
+import cv2
+import numpy as np
 
 # For GIF
 import PIL
+import torch
+from diffusers import DiffusionPipeline
+from diffusers.image_processor import VaeImageProcessor
+from diffusers.schedulers import (
+    EulerDiscreteScheduler,
+    LMSDiscreteScheduler,
+)
+from diffusers.utils import PIL_INTERPOLATION
+from diffusers.utils.torch_utils import randn_tensor
+
+# openvino
+from openvino import Core
 from PIL import Image
-import glob
-import json
-import time
+
+# tokenizer
+from transformers import CLIPTokenizer
 
 
 def scale_fit_to_window(
@@ -107,7 +101,7 @@ class LatentConsistencyEngineAdvanced(DiffusionPipeline):
         super().__init__()
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model, local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
@@ -312,23 +306,23 @@ class LatentConsistencyEngineAdvanced(DiffusionPipeline):
     @torch.no_grad()
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
-        init_image: Optional[PIL.Image.Image] = None,
-        strength: Optional[float] = 0.8,
-        height: Optional[int] = 512,
-        width: Optional[int] = 512,
+        prompt: str | list[str] = None,
+        init_image: PIL.Image.Image | None = None,
+        strength: float | None = 0.8,
+        height: int | None = 512,
+        width: int | None = 512,
         guidance_scale: float = 7.5,
         scheduler=None,
-        num_images_per_prompt: Optional[int] = 1,
-        latents: Optional[torch.FloatTensor] = None,
+        num_images_per_prompt: int | None = 1,
+        latents: torch.FloatTensor | None = None,
         num_inference_steps: int = 4,
         lcm_origin_steps: int = 50,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        output_type: Optional[str] = "pil",
+        prompt_embeds: torch.FloatTensor | None = None,
+        output_type: str | None = "pil",
         return_dict: bool = True,
-        model: Optional[Dict[str, any]] = None,
-        seed: Optional[int] = 1234567,
-        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+        model: dict[str, any] | None = None,
+        seed: int | None = 1234567,
+        cross_attention_kwargs: dict[str, Any] | None = None,
         callback=None,
         callback_userdata=None,
     ):
@@ -462,7 +456,7 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         # self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
         try:
             self.tokenizer = CLIPTokenizer.from_pretrained(model, local_files_only=True)
-        except Exception as e:
+        except Exception:
             # Fallback to downloading tokenizer if local files not available
             self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer)
             self.tokenizer.save_pretrained(model)
@@ -822,7 +816,7 @@ class StableDiffusionEngineReferenceOnly(DiffusionPipeline):
         ).numpy()
         return latents, meta
 
-    def postprocess_image(self, image: np.ndarray, meta: Dict):
+    def postprocess_image(self, image: np.ndarray, meta: dict):
         """
         Postprocessing for decoded image. Takes generated image decoded by VAE decoder, unpad it to initila image size (if required),
         normalize and convert to [0, 255] pixels range. Optionally, convertes it from np.ndarray to PIL.Image format

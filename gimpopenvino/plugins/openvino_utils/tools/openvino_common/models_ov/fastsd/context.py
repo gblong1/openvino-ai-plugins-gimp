@@ -1,4 +1,3 @@
-from pprint import pprint
 from time import perf_counter
 from traceback import print_exc
 from typing import Any
@@ -29,7 +28,7 @@ class Context:
     @property
     def error(self):
         return self._error
-    
+
     def init(self, device, settings: Settings):
         self.lcm_text_to_image.init(
                 device,
@@ -57,7 +56,7 @@ class Context:
 
             if not settings.lcm_diffusion_setting.lcm_lora:
                 return None
-            
+
             images = self.lcm_text_to_image.generate(
                 settings.lcm_diffusion_setting,
                 reshape,
@@ -65,7 +64,7 @@ class Context:
 
             elapsed = perf_counter() - tick
             self._latency = elapsed
-            
+
             if settings.lcm_diffusion_setting.controlnet:
                 if settings.lcm_diffusion_setting.controlnet.enabled:
                     images.append(

@@ -5,22 +5,27 @@
 """
 Script to create and configure gimp_openvino_config.json
 """
-import os
-import re
-import sys
 import json
-import uuid
-import shutil
+import os
 import platform
+import re
+import shutil
 import subprocess
-from pathlib import Path
+import sys
+import uuid
 from enum import Enum
+from pathlib import Path
+
+import openvino as ov
 
 import gimpopenvino
-import openvino as ov 
-from gimpopenvino.plugins.openvino_utils.tools.tools_utils import base_model_dir, config_path_dir
+from gimpopenvino.plugins.openvino_utils.tools.tools_utils import (
+    base_model_dir,
+    config_path_dir,
+)
 
-# Enum for NPU Arch - 
+
+# Enum for NPU Arch -
 class NPUArchitecture(Enum):
     ARCH_3700 = "3700" # Keem Bay
     ARCH_3720 = "3720" # Meteor Lake and Arrow Lake
@@ -130,7 +135,7 @@ def get_plugin_version(file_dir=None):
             cwd=file_dir,
             encoding="utf-8"
         ).strip()
-        
+
         # Normalize the git version to PEP 440
         match = re.match(r"v?(\d+\.\d+\.\d+)(?:-(\d+)-g[0-9a-f]+)?", raw_version)
 
@@ -143,11 +148,11 @@ def get_plugin_version(file_dir=None):
             raise ValueError(f"Invalid version format: {raw_version}")
     except Exception as e:
         print(f"Error obtaining version: {e}")
-        return "0.0.0"  # Fallback version    
+        return "0.0.0"  # Fallback version
 
 
 def complete_install(repo_weights_dir=None):
-    install_location = base_model_dir 
+    install_location = base_model_dir
 
     # Create the install directory if it doesn't exist
     os.makedirs(install_location, exist_ok=True)
