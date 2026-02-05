@@ -2,11 +2,8 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-# Project metadata is managed in setup.py for backwards compatibility
-# This file serves as the central configuration for development tools
-name = "gimpopenvino"
-dynamic = ["version"]
+# Project metadata is fully managed in setup.py for backwards compatibility
+# This file serves as the central configuration for development tools only
 
 [tool.pytest.ini_options]
 # Pytest configuration (migrated from pytest.ini)
