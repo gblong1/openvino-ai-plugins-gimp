@@ -1,5 +1,140 @@
 # Contributing
 
+## Code Quality and Development Tools
+
+This project uses modern code quality tools to maintain consistent code style and catch common errors automatically.
+
+### Quick Start
+
+1. **Install development dependencies:**
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+
+2. **Set up pre-commit hooks (recommended):**
+   ```bash
+   pre-commit install
+   ```
+
+3. **Run code quality checks manually:**
+   ```bash
+   # Run linter (checks for errors and style issues)
+   ruff check .
+
+   # Auto-fix issues where possible
+   ruff check --fix .
+
+   # Format code
+   ruff format .
+
+   # Sort imports
+   isort .
+
+   # Type checking (optional, can be slow)
+   mypy gimpopenvino
+   ```
+
+### Available Tools
+
+#### Ruff - Fast Linter and Formatter (Recommended)
+Ruff is a modern, extremely fast Python linter and formatter that replaces multiple tools (black, flake8, isort, etc.).
+
+- **Check for issues:** `ruff check .`
+- **Auto-fix issues:** `ruff check --fix .`
+- **Format code:** `ruff format .`
+- **Configuration:** See `[tool.ruff]` in `pyproject.toml`
+
+#### isort - Import Sorting
+Sorts Python imports alphabetically and automatically separates them into sections.
+
+- **Sort imports:** `isort .`
+- **Check only:** `isort --check-only .`
+- **Configuration:** See `[tool.isort]` in `pyproject.toml`
+
+#### mypy - Static Type Checking
+Optional type checking to catch type-related errors before runtime.
+
+- **Type check:** `mypy gimpopenvino`
+- **Configuration:** See `[tool.mypy]` in `pyproject.toml`
+- **Note:** Starts with gradual typing (loose settings) to not require immediate codebase changes
+
+#### pre-commit - Automated Git Hooks
+Automatically runs checks before each commit to catch issues early.
+
+- **Install hooks:** `pre-commit install`
+- **Run on all files:** `pre-commit run --all-files`
+- **Update hooks:** `pre-commit autoupdate`
+- **Configuration:** See `.pre-commit-config.yaml`
+
+#### Legacy Tools (Backward Compatibility)
+The following tools are still available but ruff is recommended:
+- **black:** Code formatter (use `ruff format` instead)
+- **flake8:** Linter (use `ruff check` instead)
+
+### Editor Integration
+
+#### VS Code
+Install extensions:
+- Python (Microsoft)
+- Ruff (Astral Software)
+- EditorConfig for VS Code
+
+Add to `.vscode/settings.json`:
+```json
+{
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": true,
+      "source.organizeImports.ruff": true
+    }
+  }
+}
+```
+
+#### PyCharm/IntelliJ
+1. Install the "Ruff" plugin from the marketplace
+2. Enable EditorConfig support (usually enabled by default)
+3. Configure File Watchers for automatic formatting (optional)
+
+#### Other Editors
+See `.editorconfig` for basic editor settings (indentation, line endings, etc.) which is supported by most modern editors.
+
+### Configuration Files
+
+All tool configurations are centralized in `pyproject.toml` following modern Python standards:
+- **pyproject.toml** - Main configuration for ruff, isort, mypy, black, pytest, coverage
+- **.pre-commit-config.yaml** - Pre-commit hooks configuration
+- **.editorconfig** - Cross-editor consistency settings
+
+### Workflow Recommendations
+
+#### Before Committing
+If you have pre-commit installed, it will automatically run checks. Otherwise:
+```bash
+ruff check --fix .
+ruff format .
+isort .
+```
+
+#### Before Pull Request
+```bash
+# Run all quality checks
+pre-commit run --all-files
+
+# Run tests
+pytest
+
+# Type check (optional)
+mypy gimpopenvino
+```
+
+#### Continuous Improvement
+- Start by fixing ruff errors (`ruff check --fix .`)
+- Gradually add type hints where beneficial
+- Keep configurations up to date with `pre-commit autoupdate`
+
 ## Dependency Management
 
 This project follows modern Python packaging best practices:
