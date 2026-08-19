@@ -90,11 +90,13 @@ setup(
         "requests",
         "opencv-python>=4.8.1.78",
         "scikit-image",
+        "timm==0.4.5",
         "transformers>=4.37.0,<=4.56.2",
         "diffusers<=0.37.1",
         "controlnet-aux>=0.0.6",
-        "openvino==2026.1.0",
-        "openvino-genai==2026.1.0.0",
+        "openvino>=2026.2",
+        "openvino-genai>=2026.2",
+        "protobuf",
         "psutil",
         "matplotlib",
         "sentencepiece",
@@ -103,7 +105,7 @@ setup(
         "peft",
         "pydantic",
         "tomesd",
-        "hf_xet"
+        "hf_xet",
     ],
 )
 
