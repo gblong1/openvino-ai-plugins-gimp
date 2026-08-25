@@ -1,0 +1,86 @@
+# Pre-commit hooks for GIMP OpenVINO AI Plugins
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+# Update hooks: pre-commit autoupdate
+
+default_language_version:
+  python: python3.10
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$|\.txt$'
+      - id: end-of-file-fixer
+        exclude: '\.json$|\.txt$'
+      - id: check-yaml
+        args: ['--safe']
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+        exclude: 'weights/|testcases/|sampleinput/'
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Ruff - Fast Python linter (replaces flake8, pylint, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: ['--fix', '--exit-non-zero-on-fix']
+        types_or: [python, pyi]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # isort - Import sorting (using black profile for compatibility)
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ['--profile', 'black', '--line-length', '88']
+
+  # mypy - Static type checking (optional, can be slow)
+  # Uncomment to enable type checking in pre-commit
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: []
+  #       args: ['--ignore-missing-imports', '--scripts-are-modules']
+  #       exclude: 'tests/|testcases/|thirdparty/'
+
+  # Black - Code formatter (kept for backward compatibility)
+  # Note: Ruff format is preferred, but black is included if needed
+  # - repo: https://github.com/psf/black
+  #   rev: 23.12.1
+  #   hooks:
+  #     - id: black
+  #       language_version: python3.10
+
+# Configuration for specific file patterns
+exclude: |
+  (?x)^(
+      \.git/|
+      \.github/|
+      weights/|
+      testcases/|
+      sampleinput/|
+      thirdparty/|
+      .*\.egg-info/|
+      build/|
+      dist/|
+      htmlcov/|
+      \.pytest_cache/|
+      \.mypy_cache/|
+      \.ruff_cache/|
+      \.venv/|
+      __pycache__/
+  )

@@ -1,0 +1,283 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gimpopenvino"
+description = "OpenVINO™ AI Plugins for GIMP"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Arisha Kumar"},
+]
+keywords = ["openvino", "gimp", "ai", "plugins"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/intel/openvino-ai-plugins-gimp"
+Repository = "https://github.com/intel/openvino-ai-plugins-gimp"
+Issues = "https://github.com/intel/openvino-ai-plugins-gimp/issues"
+
+# =============================================================================
+# Ruff Configuration - Modern, fast Python linter and formatter
+# =============================================================================
+[tool.ruff]
+# Target Python 3.10+ as specified in setup.py
+target-version = "py310"
+
+# Line length to match black's default
+line-length = 88
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "htmlcov",
+    "weights",
+    "testcases",
+    "sampleinput",
+    "thirdparty",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+# Enable safe and commonly used rule sets
+# Start with a reasonable set that won't require massive changes
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "W",     # pycodestyle warnings
+    "I",     # isort (import sorting)
+    "N",     # pep8-naming
+    "UP",    # pyupgrade (modernize Python code)
+    "B",     # flake8-bugbear (catch common bugs)
+    "C4",    # flake8-comprehensions
+    "PIE",   # flake8-pie
+    "RET",   # flake8-return
+    "SIM",   # flake8-simplify
+    "PTH",   # flake8-use-pathlib
+]
+
+# Ignore specific rules that may be too strict initially
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "B008",   # Do not perform function calls in argument defaults
+    "B905",   # zip() without an explicit strict= parameter
+    "N802",   # Function name should be lowercase
+    "N803",   # Argument name should be lowercase
+    "N806",   # Variable in function should be lowercase
+    "PTH123", # builtin open should be replaced by Path.open()
+    "RET504", # Unnecessary variable assignment before return
+    "SIM108", # Use ternary operator instead of if-else
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Test files can have additional flexibility
+"tests/**/*.py" = [
+    "S101",   # Allow assert in tests
+    "PLR2004", # Magic value comparisons are ok in tests
+]
+"**/test_*.py" = [
+    "S101",
+    "PLR2004",
+]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Use Unix line endings
+line-ending = "lf"
+
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+
+# =============================================================================
+# isort Configuration - Import sorting
+# =============================================================================
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_glob = [
+    "*.egg-info/*",
+    "build/*",
+    "dist/*",
+    ".venv/*",
+    "weights/*",
+    "testcases/*",
+    "sampleinput/*",
+    "thirdparty/*",
+]
+known_third_party = [
+    "numpy",
+    "scipy",
+    "cv2",
+    "PIL",
+    "transformers",
+    "diffusers",
+    "openvino",
+    "pytest",
+]
+known_first_party = ["gimpopenvino"]
+
+# =============================================================================
+# mypy Configuration - Type checking
+# =============================================================================
+[tool.mypy]
+# Start with gradual typing - not too strict initially
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = true
+
+# Exclude directories that don't need type checking
+exclude = [
+    "build/",
+    "dist/",
+    ".venv/",
+    "weights/",
+    "testcases/",
+    "sampleinput/",
+    "thirdparty/",
+]
+
+# Per-module options for third-party libraries
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*",
+    "scipy.*",
+    "skimage.*",
+    "transformers.*",
+    "diffusers.*",
+    "openvino.*",
+    "controlnet_aux.*",
+    "matplotlib.*",
+    "sentencepiece.*",
+    "optimum.*",
+    "peft.*",
+    "tomesd.*",
+]
+ignore_missing_imports = true
+
+# =============================================================================
+# black Configuration - Code formatting (kept for backward compatibility)
+# =============================================================================
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | weights
+  | testcases
+  | sampleinput
+  | thirdparty
+)/
+'''
+
+# =============================================================================
+# pytest Configuration - Testing
+# =============================================================================
+[tool.pytest.ini_options]
+# Test discovery patterns
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Test paths
+testpaths = ["tests"]
+
+# Markers for categorizing tests
+markers = [
+    "smoke: Smoke tests for basic functionality",
+    "integration: Integration tests for component interaction",
+    "unit: Unit tests for individual components",
+    "slow: Tests that take significant time to run",
+    "socket: Tests involving socket communication",
+    "model: Tests involving model loading and inference",
+    "plugin: Tests involving GIMP plugin interfaces",
+]
+
+# Output options
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--cov=gimpopenvino",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=0",
+]
+
+# =============================================================================
+# coverage Configuration - Code coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["gimpopenvino"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
